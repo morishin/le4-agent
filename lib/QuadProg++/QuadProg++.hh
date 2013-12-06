@@ -79,7 +79,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #ifndef MATRIX_DIM
-#define MATRIX_DIM 20
+#define MATRIX_DIM 100
 #endif
 
 double solve_quadprog(double G[][MATRIX_DIM], double g0[], int n, 
