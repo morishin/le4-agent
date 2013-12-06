@@ -34,93 +34,99 @@
 #include <limits>
 #include <sstream>
 #include <stdexcept>
-#include "QuadProg++.hh"
+#include "uQuadProg++.hh"
 //#define TRACE_SOLVER
-namespace QuadProgPP{
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+
+namespace ublas = boost::numeric::ublas;
+
+namespace uQuadProgPP {
+  
 // Utility functions for updating some data needed by the solution method 
-void compute_d(Vector<double>& d, const Matrix<double>& J, const Vector<double>& np);
-void update_z(Vector<double>& z, const Matrix<double>& J, const Vector<double>& d, int iq);
-void update_r(const Matrix<double>& R, Vector<double>& r, const Vector<double>& d, int iq);
-bool add_constraint(Matrix<double>& R, Matrix<double>& J, Vector<double>& d, int& iq, double& rnorm);
-void delete_constraint(Matrix<double>& R, Matrix<double>& J, Vector<int>& A, Vector<double>& u, int n, int p, int& iq, int l);
+void compute_d(ublas::vector<double>& d, const ublas::matrix<double>& J, const ublas::vector<double>& np);
+void update_z(ublas::vector<double>& z, const ublas::matrix<double>& J, const ublas::vector<double>& d, int iq);
+void update_r(const ublas::matrix<double>& R, ublas::vector<double>& r, const ublas::vector<double>& d, int iq);
+bool add_constraint(ublas::matrix<double>& R, ublas::matrix<double>& J, ublas::vector<double>& d, int& iq, double& rnorm);
+void delete_constraint(ublas::matrix<double>& R, ublas::matrix<double>& J, ublas::vector<int>& A, ublas::vector<double>& u, int n, int p, int& iq, int l);
 
 // Utility functions for computing the Cholesky decomposition and solving
 // linear systems
-void cholesky_decomposition(Matrix<double>& A);
-void cholesky_solve(const Matrix<double>& L, Vector<double>& x, const Vector<double>& b);
-void forward_elimination(const Matrix<double>& L, Vector<double>& y, const Vector<double>& b);
-void backward_elimination(const Matrix<double>& U, Vector<double>& x, const Vector<double>& y);
+void cholesky_decomposition(ublas::matrix<double>& A);
+void cholesky_solve(const ublas::matrix<double>& L, ublas::vector<double>& x, const ublas::vector<double>& b);
+void forward_elimination(const ublas::matrix<double>& L, ublas::vector<double>& y, const ublas::vector<double>& b);
+void backward_elimination(const ublas::matrix<double>& U, ublas::vector<double>& x, const ublas::vector<double>& y);
 
 // Utility functions for computing the scalar product and the euclidean 
 // distance between two numbers
-double scalar_product(const Vector<double>& x, const Vector<double>& y);
+double scalar_product(const ublas::vector<double>& x, const ublas::vector<double>& y);
 double distance(double a, double b);
 
-// Utility functions for printing vectors and matrices
-void print_matrix(const char* name, const Matrix<double>& A, int n = -1, int m = -1);
+// Utility functions for printing ublas::vectors and matrices
+void print_matrix(const char* name, const ublas::matrix<double>& A, int n = -1, int m = -1);
 
 template<typename T>
-void print_vector(const char* name, const Vector<T>& v, int n = -1);
+void print_vector(const char* name, const ublas::vector<T>& v, int n = -1);
 
 // The Solving function, implementing the Goldfarb-Idnani method
 
-double solve_quadprog(Matrix<double>& G, Vector<double>& g0, 
-                      const Matrix<double>& CE, const Vector<double>& ce0,  
-                      const Matrix<double>& CI, const Vector<double>& ci0, 
-                      Vector<double>& x)
+double solve_quadprog(ublas::matrix<double>& G, ublas::vector<double>& g0, 
+                      const ublas::matrix<double>& CE, const ublas::vector<double>& ce0,  
+                      const ublas::matrix<double>& CI, const ublas::vector<double>& ci0, 
+                      ublas::vector<double>& x)
 {
   std::ostringstream msg;
   {
-    //Ensure that the dimensions of the matrices and vectors can be
-    //safely converted from unsigned int into int without overflow.
+    //Ensure that the dimensions of the matrices and ublas::vectors can be
+    //safely converted from unsigned int into to int without overflow.
     unsigned mx = std::numeric_limits<int>::max();
-    if(G.ncols() >= mx || G.nrows() >= mx || 
-       CE.nrows() >= mx || CE.ncols() >= mx ||
-       CI.nrows() >= mx || CI.ncols() >= mx || 
+    if(G.size2() >= mx || G.size1() >= mx || 
+       CE.size1() >= mx || CE.size2() >= mx ||
+       CI.size1() >= mx || CI.size2() >= mx || 
        ci0.size() >= mx || ce0.size() >= mx || g0.size() >= mx){
-      msg << "The dimensions of one of the input matrices or vectors were "
+      msg << "The dimensions of one of the input matrices or ublas::vectors were "
 	  << "too large." << std::endl
 	  << "The maximum allowable size for inputs to solve_quadprog is:"
 	  << mx << std::endl;
       throw std::logic_error(msg.str());
     }
   }
-  int n = G.ncols(), p = CE.ncols(), m = CI.ncols();
-  if ((int)G.nrows() != n)
+  int n = G.size2(), p = CE.size2(), m = CI.size2();
+  if ((int)G.size1() != n)
   {
-    msg << "The matrix G is not a square matrix (" << G.nrows() << " x " 
-	<< G.ncols() << ")";
+    msg << "The ublas::matrix G is not a square ublas::matrix (" << G.size1() << " x " 
+	<< G.size2() << ")";
     throw std::logic_error(msg.str());
   }
-  if (CE.ncols() > 0 && (int)CE.nrows() != n)
+  if (CE.size2() > 0 && (int)CE.size1() != n)
   {
-    msg << "The matrix CE is incompatible (incorrect number of rows " 
-	<< CE.nrows() << " , expecting " << n << ")";
+    msg << "The ublas::matrix CE is incompatible (incorrect number of rows " 
+	<< CE.size1() << " , expecting " << n << ")";
     throw std::logic_error(msg.str());
   }
   if ((int)ce0.size() != p)
   {
-    msg << "The vector ce0 is incompatible (incorrect dimension " 
+    msg << "The ublas::vector ce0 is incompatible (incorrect dimension " 
 	<< ce0.size() << ", expecting " << p << ")";
     throw std::logic_error(msg.str());
   }
-  if (CI.ncols() > 0 && (int)CI.nrows() != n)
+  if (CI.size2() > 0 && (int)CI.size1() != n)
   {
-    msg << "The matrix CI is incompatible (incorrect number of rows " 
-	<< CI.nrows() << " , expecting " << n << ")";
+    msg << "The ublas::matrix CI is incompatible (incorrect number of rows " 
+	<< CI.size1() << " , expecting " << n << ")";
     throw std::logic_error(msg.str());
   }
   if ((int)ci0.size() != m)
   {
-    msg << "The vector ci0 is incompatible (incorrect dimension " 
+    msg << "The ublas::vector ci0 is incompatible (incorrect dimension " 
 	<< ci0.size() << ", expecting " << m << ")";
     throw std::logic_error(msg.str());
   }
   x.resize(n);
   register int i, j, k, l; /* indices */
   int ip; // this is the index of the constraint to be added to the active set
-  Matrix<double> R(n, n), J(n, n);
-  Vector<double> s(m + p), z(n), r(m + p), d(n), np(n), u(m + p), x_old(n), u_old(m + p);
+  ublas::matrix<double> R(n, n), J(n, n);
+  ublas::vector<double> s(m + p), z(n), r(m + p), d(n), np(n), u(m + p), x_old(n), u_old(m + p);
   double f_value, psi, c1, c2, sum, ss, R_norm;
   double inf;
   if (std::numeric_limits<double>::has_infinity)
@@ -129,60 +135,60 @@ double solve_quadprog(Matrix<double>& G, Vector<double>& g0,
     inf = 1.0E300;
   double t, t1, t2; /* t is the step lenght, which is the minimum of the partial step length t1 
     * and the full step length t2 */
-  Vector<int> A(m + p), A_old(m + p), iai(m + p);
+  ublas::vector<int> A(m + p), A_old(m + p), iai(m + p);
   int q, iq, iter = 0;
-  Vector<bool> iaexcl(m + p);
+  ublas::vector<bool> iaexcl(m + p);
 	
   /* p is the number of equality constraints */
   /* m is the number of inequality constraints */
   q = 0;  /* size of the active set A (containing the indices of the active constraints) */
 #ifdef TRACE_SOLVER
   std::cout << std::endl << "Starting solve_quadprog" << std::endl;
-  print_matrix("G", G);
-  print_vector("g0", g0);
-  print_matrix("CE", CE);
-  print_vector("ce0", ce0);
-  print_matrix("CI", CI);
-  print_vector("ci0", ci0);
+  print_ublas::matrix("G", G);
+  print_ublas::vector("g0", g0);
+  print_ublas::matrix("CE", CE);
+  print_ublas::vector("ce0", ce0);
+  print_ublas::matrix("CI", CI);
+  print_ublas::vector("ci0", ci0);
 #endif  
   
   /*
    * Preprocessing phase
    */
 	
-  /* compute the trace of the original matrix G */
+  /* compute the trace of the original ublas::matrix G */
   c1 = 0.0;
   for (i = 0; i < n; i++)
   {
-    c1 += G[i][i];
+    c1 += G(i, i);
   }
-  /* decompose the matrix G in the form L^T L */
+  /* decompose the ublas::matrix G in the form L^T L */
   cholesky_decomposition(G);
 #ifdef TRACE_SOLVER
   print_matrix("G", G);
 #endif
-  /* initialize the matrix R */
+  /* initialize the ublas::matrix R */
   for (i = 0; i < n; i++)
   {
-    d[i] = 0.0;
+    d(i) = 0.0;
     for (j = 0; j < n; j++)
-      R[i][j] = 0.0;
+      R(i, j) = 0.0;
   }
-  R_norm = 1.0; /* this variable will hold the norm of the matrix R */
+  R_norm = 1.0; /* this variable will hold the norm of the ublas::matrix R */
   
-  /* compute the inverse of the factorized matrix G^-1, this is the initial value for H */
+  /* compute the inverse of the factorized ublas::matrix G^-1, this is the initial value for H */
   c2 = 0.0;
   for (i = 0; i < n; i++) 
   {
-    d[i] = 1.0;
+    d(i) = 1.0;
     forward_elimination(G, z, d);
     for (j = 0; j < n; j++)
-      J[i][j] = z[j];
-    c2 += z[i];
-    d[i] = 0.0;
+      J(i, j) = z(j);
+    c2 += z(i);
+    d(i) = 0.0;
   }
 #ifdef TRACE_SOLVER
-  print_matrix("J", J);
+  print_ublas::matrix("J", J);
 #endif
   
   /* c1 * c2 is an estimate for cond(G) */
@@ -194,12 +200,12 @@ double solve_quadprog(Matrix<double>& G, Vector<double>& g0,
    */
   cholesky_solve(G, x, g0);
   for (i = 0; i < n; i++)
-    x[i] = -x[i];
+    x(i) = -x(i);
   /* and compute the current solution value */ 
   f_value = 0.5 * scalar_product(g0, x);
 #ifdef TRACE_SOLVER
   std::cout << "Unconstrained solution: " << f_value << std::endl;
-  print_vector("x", x);
+  print_ublas::vector("x", x);
 #endif
   
   /* Add equality constraints to the working set A */
@@ -207,35 +213,35 @@ double solve_quadprog(Matrix<double>& G, Vector<double>& g0,
   for (i = 0; i < p; i++)
   {
     for (j = 0; j < n; j++)
-      np[j] = CE[j][i];
+      np(j) = CE(j, i);
     compute_d(d, J, np);
     update_z(z, J, d, iq);
     update_r(R, r, d, iq);
 #ifdef TRACE_SOLVER
-    print_matrix("R", R, n, iq);
-    print_vector("z", z);
-    print_vector("r", r, iq);
-    print_vector("d", d);
+    print_ublas::matrix("R", R, n, iq);
+    print_ublas::vector("z", z);
+    print_ublas::vector("r", r, iq);
+    print_ublas::vector("d", d);
 #endif
     
     /* compute full step length t2: i.e., the minimum step in primal space s.t. the contraint 
       becomes feasible */
     t2 = 0.0;
     if (fabs(scalar_product(z, z)) > std::numeric_limits<double>::epsilon()) // i.e. z != 0
-      t2 = (-scalar_product(np, x) - ce0[i]) / scalar_product(z, np);
+      t2 = (-scalar_product(np, x) - ce0(i)) / scalar_product(z, np);
     
     /* set x = x + t2 * z */
     for (k = 0; k < n; k++)
-      x[k] += t2 * z[k];
+      x(k) += t2 * z(k);
     
     /* set u = u+ */
-    u[iq] = t2;
+    u(iq) = t2;
     for (k = 0; k < iq; k++)
-      u[k] -= t2 * r[k];
+      u(k) -= t2 * r(k);
     
     /* compute the new solution value */
     f_value += 0.5 * (t2 * t2) * scalar_product(z, np);
-    A[i] = -i - 1;
+    A(i) = -i - 1;
     
     if (!add_constraint(R, J, d, iq, R_norm))
     {	  
@@ -247,35 +253,35 @@ double solve_quadprog(Matrix<double>& G, Vector<double>& g0,
   
   /* set iai = K \ A */
   for (i = 0; i < m; i++)
-    iai[i] = i;
+    iai(i) = i;
   
 l1:	iter++;
 #ifdef TRACE_SOLVER
-  print_vector("x", x);
+  print_ublas::vector("x", x);
 #endif
   /* step 1: choose a violated constraint */
   for (i = p; i < iq; i++)
   {
-    ip = A[i];
-    iai[ip] = -1;
+    ip = A(i);
+    iai(ip) = -1;
   }
 	
-  /* compute s[x] = ci^T * x + ci0 for all elements of K \ A */
+  /* compute s(x) = ci^T * x + ci0 for all elements of K \ A */
   ss = 0.0;
   psi = 0.0; /* this value will contain the sum of all infeasibilities */
   ip = 0; /* ip will be the index of the chosen violated constraint */
   for (i = 0; i < m; i++)
   {
-    iaexcl[i] = true;
+    iaexcl(i) = true;
     sum = 0.0;
     for (j = 0; j < n; j++)
-      sum += CI[j][i] * x[j];
-    sum += ci0[i];
-    s[i] = sum;
+      sum += CI(j, i) * x(j);
+    sum += ci0(i);
+    s(i) = sum;
     psi += std::min(0.0, sum);
   }
 #ifdef TRACE_SOLVER
-  print_vector("s", s, m);
+  print_ublas::vector("s", s, m);
 #endif
   
   
@@ -290,19 +296,19 @@ l1:	iter++;
   /* save old values for u and A */
   for (i = 0; i < iq; i++)
   {
-    u_old[i] = u[i];
-    A_old[i] = A[i];
+    u_old(i) = u(i);
+    A_old(i) = A(i);
   }
   /* and for x */
   for (i = 0; i < n; i++)
-    x_old[i] = x[i];
+    x_old(i) = x(i);
   
 l2: /* Step 2: check for feasibility and determine a new S-pair */
     for (i = 0; i < m; i++)
     {
-      if (s[i] < ss && iai[i] != -1 && iaexcl[i])
+      if (s(i) < ss && iai(i) != -1 && iaexcl(i))
       {
-        ss = s[i];
+        ss = s(i);
         ip = i;
       }
     }
@@ -313,17 +319,17 @@ l2: /* Step 2: check for feasibility and determine a new S-pair */
     return f_value;
   }
   
-  /* set np = n[ip] */
+  /* set np = n(ip) */
   for (i = 0; i < n; i++)
-    np[i] = CI[i][ip];
-  /* set u = [u 0]^T */
-  u[iq] = 0.0;
+    np(i) = CI(i, ip);
+  /* set u = (u 0)^T */
+  u(iq) = 0.0;
   /* add ip to the active set A */
-  A[iq] = ip;
+  A(iq) = ip;
   
 #ifdef TRACE_SOLVER
   std::cout << "Trying with constraint " << ip << std::endl;
-  print_vector("np", np);
+  print_ublas::vector("np", np);
 #endif
   
 l2a:/* Step 2a: determine step direction */
@@ -334,32 +340,32 @@ l2a:/* Step 2a: determine step direction */
   update_r(R, r, d, iq);
 #ifdef TRACE_SOLVER
   std::cout << "Step direction z" << std::endl;
-  print_vector("z", z);
-  print_vector("r", r, iq + 1);
-  print_vector("u", u, iq + 1);
-  print_vector("d", d);
-  print_vector("A", A, iq + 1);
+  print_ublas::vector("z", z);
+  print_ublas::vector("r", r, iq + 1);
+  print_ublas::vector("u", u, iq + 1);
+  print_ublas::vector("d", d);
+  print_ublas::vector("A", A, iq + 1);
 #endif
   
   /* Step 2b: compute step length */
   l = 0;
   /* Compute t1: partial step length (maximum step in dual space without violating dual feasibility */
   t1 = inf; /* +inf */
-  /* find the index l s.t. it reaches the minimum of u+[x] / r */
+  /* find the index l s.t. it reaches the minimum of u+(x) / r */
   for (k = p; k < iq; k++)
   {
-    if (r[k] > 0.0)
+    if (r(k) > 0.0)
     {
-      if (u[k] / r[k] < t1)
+      if (u(k) / r(k) < t1)
 	    {
-	      t1 = u[k] / r[k];
-	      l = A[k];
+	      t1 = u(k) / r(k);
+	      l = A(k);
 	    }
     }
   }
   /* Compute t2: full step length (minimum step in primal space such that the constraint ip becomes feasible */
   if (fabs(scalar_product(z, z))  > std::numeric_limits<double>::epsilon()) // i.e. z != 0
-    t2 = -s[ip] / scalar_product(z, np);
+    t2 = -s(ip) / scalar_product(z, np);
   else
     t2 = inf; /* +inf */
   
@@ -382,18 +388,18 @@ l2a:/* Step 2a: determine step direction */
   /* case (ii): step in dual space */
   if (t2 >= inf)
   {
-    /* set u = u +  t * [-r 1] and drop constraint l from the active set A */
+    /* set u = u +  t * (-r 1) and drop constraint l from the active set A */
     for (k = 0; k < iq; k++)
-      u[k] -= t * r[k];
-    u[iq] += t;
-    iai[l] = l;
+      u(k) -= t * r(k);
+    u(iq) += t;
+    iai(l) = l;
     delete_constraint(R, J, A, u, n, p, iq, l);
 #ifdef TRACE_SOLVER
     std::cout << " in dual space: " 
       << f_value << std::endl;
-    print_vector("x", x);
-    print_vector("z", z);
-    print_vector("A", A, iq + 1);
+    print_ublas::vector("x", x);
+    print_ublas::vector("z", z);
+    print_ublas::vector("A", A, iq + 1);
 #endif
     goto l2a;
   }
@@ -402,57 +408,57 @@ l2a:/* Step 2a: determine step direction */
   
   /* set x = x + t * z */
   for (k = 0; k < n; k++)
-    x[k] += t * z[k];
+    x(k) += t * z(k);
   /* update the solution value */
-  f_value += t * scalar_product(z, np) * (0.5 * t + u[iq]);
-  /* u = u + t * [-r 1] */
+  f_value += t * scalar_product(z, np) * (0.5 * t + u(iq));
+  /* u = u + t * (-r 1) */
   for (k = 0; k < iq; k++)
-    u[k] -= t * r[k];
-  u[iq] += t;
+    u(k) -= t * r(k);
+  u(iq) += t;
 #ifdef TRACE_SOLVER
   std::cout << " in both spaces: " 
     << f_value << std::endl;
-  print_vector("x", x);
-  print_vector("u", u, iq + 1);
-  print_vector("r", r, iq + 1);
-  print_vector("A", A, iq + 1);
+  print_ublas::vector("x", x);
+  print_ublas::vector("u", u, iq + 1);
+  print_ublas::vector("r", r, iq + 1);
+  print_ublas::vector("A", A, iq + 1);
 #endif
   
   if (fabs(t - t2) < std::numeric_limits<double>::epsilon())
   {
 #ifdef TRACE_SOLVER
     std::cout << "Full step has taken " << t << std::endl;
-    print_vector("x", x);
+    print_ublas::vector("x", x);
 #endif
     /* full step has taken */
     /* add constraint ip to the active set*/
     if (!add_constraint(R, J, d, iq, R_norm))
     {
-      iaexcl[ip] = false;
+      iaexcl(ip) = false;
       delete_constraint(R, J, A, u, n, p, iq, ip);
 #ifdef TRACE_SOLVER
-      print_matrix("R", R);
-      print_vector("A", A, iq);
-			print_vector("iai", iai);
+      print_ublas::matrix("R", R);
+      print_ublas::vector("A", A, iq);
+			print_ublas::vector("iai", iai);
 #endif
       for (i = 0; i < m; i++)
-        iai[i] = i;
+        iai(i) = i;
       for (i = p; i < iq; i++)
 	    {
-	      A[i] = A_old[i];
-	      u[i] = u_old[i];
-				iai[A[i]] = -1;
+	      A(i) = A_old(i);
+	      u(i) = u_old(i);
+				iai(A(i)) = -1;
 	    }
       for (i = 0; i < n; i++)
-        x[i] = x_old[i];
+        x(i) = x_old(i);
       goto l2; /* go to step 2 */
     }    
     else
-      iai[ip] = -1;
+      iai(ip) = -1;
 #ifdef TRACE_SOLVER
-    print_matrix("R", R);
-    print_vector("A", A, iq);
-		print_vector("iai", iai);
+    print_ublas::matrix("R", R);
+    print_ublas::vector("A", A, iq);
+		print_ublas::vector("iai", iai);
 #endif
     goto l1;
   }
@@ -460,29 +466,29 @@ l2a:/* Step 2a: determine step direction */
   /* a patial step has taken */
 #ifdef TRACE_SOLVER
   std::cout << "Partial step has taken " << t << std::endl;
-  print_vector("x", x);
+  print_ublas::vector("x", x);
 #endif
   /* drop constraint l */
-  iai[l] = l;
+  iai(l) = l;
   delete_constraint(R, J, A, u, n, p, iq, l);
 #ifdef TRACE_SOLVER
-  print_matrix("R", R);
-  print_vector("A", A, iq);
+  print_ublas::matrix("R", R);
+  print_ublas::vector("A", A, iq);
 #endif
   
-  /* update s[ip] = CI * x + ci0 */
+  /* update s(ip) = CI * x + ci0 */
   sum = 0.0;
   for (k = 0; k < n; k++)
-    sum += CI[k][ip] * x[k];
-  s[ip] = sum + ci0[ip];
+    sum += CI(k, ip) * x(k);
+  s(ip) = sum + ci0(ip);
   
 #ifdef TRACE_SOLVER
-  print_vector("s", s, m);
+  print_ublas::vector("s", s, m);
 #endif
   goto l2a;
 }
 
-inline void compute_d(Vector<double>& d, const Matrix<double>& J, const Vector<double>& np)
+inline void compute_d(ublas::vector<double>& d, const ublas::matrix<double>& J, const ublas::vector<double>& np)
 {
   register int i, j, n = d.size();
   register double sum;
@@ -492,25 +498,25 @@ inline void compute_d(Vector<double>& d, const Matrix<double>& J, const Vector<d
   {
     sum = 0.0;
     for (j = 0; j < n; j++)
-      sum += J[j][i] * np[j];
-    d[i] = sum;
+      sum += J(j, i) * np(j);
+    d(i) = sum;
   }
 }
 
-inline void update_z(Vector<double>& z, const Matrix<double>& J, const Vector<double>& d, int iq)
+inline void update_z(ublas::vector<double>& z, const ublas::matrix<double>& J, const ublas::vector<double>& d, int iq)
 {
   register int i, j, n = z.size();
 	
   /* setting of z = H * d */
   for (i = 0; i < n; i++)
   {
-    z[i] = 0.0;
+    z(i) = 0.0;
     for (j = iq; j < n; j++)
-      z[i] += J[i][j] * d[j];
+      z(i) += J(i, j) * d(j);
   }
 }
 
-inline void update_r(const Matrix<double>& R, Vector<double>& r, const Vector<double>& d, int iq)
+inline void update_r(const ublas::matrix<double>& R, ublas::vector<double>& r, const ublas::vector<double>& d, int iq)
 {
   register int i, j;/*, n = d.size();*/
   register double sum;
@@ -520,12 +526,12 @@ inline void update_r(const Matrix<double>& R, Vector<double>& r, const Vector<do
   {
     sum = 0.0;
     for (j = i + 1; j < iq; j++)
-      sum += R[i][j] * r[j];
-    r[i] = (d[i] - sum) / R[i][i];
+      sum += R(i, j) * r(j);
+    r(i) = (d(i) - sum) / R(i, i);
   }
 }
 
-bool add_constraint(Matrix<double>& R, Matrix<double>& J, Vector<double>& d, int& iq, double& R_norm)
+bool add_constraint(ublas::matrix<double>& R, ublas::matrix<double>& J, ublas::vector<double>& d, int& iq, double& R_norm)
 {
   int n = d.size();
 #ifdef TRACE_SOLVER
@@ -535,12 +541,12 @@ bool add_constraint(Matrix<double>& R, Matrix<double>& J, Vector<double>& d, int
   double cc, ss, h, t1, t2, xny;
 	
   /* we have to find the Givens rotation which will reduce the element
-    d[j] to zero.
+    d(j) to zero.
     if it is already zero we don't have to do anything, except of
     decreasing j */  
   for (j = n - 1; j >= iq + 1; j--)
   {
-    /* The Givens rotation is done with the matrix (cc cs, cs -cc).
+    /* The Givens rotation is done with the ublas::matrix (cc cs, cs -cc).
     If cc is one, then element (j) of d is zero compared with element
     (j - 1). Hence we don't have to do anything. 
     If cc is zero, then we just have to switch column (j) and column (j - 1) 
@@ -548,55 +554,55 @@ bool add_constraint(Matrix<double>& R, Matrix<double>& J, Vector<double>& d, int
     update d depending on the sign of gs.
     Otherwise we have to apply the Givens rotation to these columns.
     The i - 1 element of d has to be updated to h. */
-    cc = d[j - 1];
-    ss = d[j];
+    cc = d(j - 1);
+    ss = d(j);
     h = distance(cc, ss);
     if (fabs(h) < std::numeric_limits<double>::epsilon()) // h == 0
       continue;
-    d[j] = 0.0;
+    d(j) = 0.0;
     ss = ss / h;
     cc = cc / h;
     if (cc < 0.0)
     {
       cc = -cc;
       ss = -ss;
-      d[j - 1] = -h;
+      d(j - 1) = -h;
     }
     else
-      d[j - 1] = h;
+      d(j - 1) = h;
     xny = ss / (1.0 + cc);
     for (k = 0; k < n; k++)
     {
-      t1 = J[k][j - 1];
-      t2 = J[k][j];
-      J[k][j - 1] = t1 * cc + t2 * ss;
-      J[k][j] = xny * (t1 + J[k][j - 1]) - t2;
+      t1 = J(k, j - 1);
+      t2 = J(k, j);
+      J(k, j - 1) = t1 * cc + t2 * ss;
+      J(k, j) = xny * (t1 + J(k, j - 1)) - t2;
     }
   }
   /* update the number of constraints added*/
   iq++;
-  /* To update R we have to put the iq components of the d vector
+  /* To update R we have to put the iq components of the d ublas::vector
     into column iq - 1 of R
     */
   for (i = 0; i < iq; i++)
-    R[i][iq - 1] = d[i];
+    R(i, iq - 1) = d(i);
 #ifdef TRACE_SOLVER
   std::cout << iq << std::endl;
-  print_matrix("R", R, iq, iq);
-  print_matrix("J", J);
-  print_vector("d", d, iq);
+  print_ublas::matrix("R", R, iq, iq);
+  print_ublas::matrix("J", J);
+  print_ublas::vector("d", d, iq);
 #endif
   
-  if (fabs(d[iq - 1]) <= std::numeric_limits<double>::epsilon() * R_norm) 
+  if (fabs(d(iq - 1)) <= std::numeric_limits<double>::epsilon() * R_norm) 
   {
     // problem degenerate
     return false;
   }
-  R_norm = std::max<double>(R_norm, fabs(d[iq - 1]));
+  R_norm = std::max<double>(R_norm, fabs(d(iq - 1)));
   return true;
 }
 
-void delete_constraint(Matrix<double>& R, Matrix<double>& J, Vector<int>& A, Vector<double>& u, int n, int p, int& iq, int l)
+void delete_constraint(ublas::matrix<double>& R, ublas::matrix<double>& J, ublas::vector<int>& A, ublas::vector<double>& u, int n, int p, int& iq, int l)
 {
 #ifdef TRACE_SOLVER
   std::cout << "Delete constraint " << l << ' ' << iq;
@@ -606,7 +612,7 @@ void delete_constraint(Matrix<double>& R, Matrix<double>& J, Vector<int>& A, Vec
   
   /* Find the index qq for active constraint l to be removed */
   for (i = p; i < iq; i++)
-    if (A[i] == l)
+    if (A(i) == l)
     {
       qq = i;
       break;
@@ -615,18 +621,18 @@ void delete_constraint(Matrix<double>& R, Matrix<double>& J, Vector<int>& A, Vec
   /* remove the constraint from the active set and the duals */
   for (i = qq; i < iq - 1; i++)
     {
-      A[i] = A[i + 1];
-      u[i] = u[i + 1];
+      A(i) = A(i + 1);
+      u(i) = u(i + 1);
       for (j = 0; j < n; j++)
-        R[j][i] = R[j][i + 1];
+        R(j, i) = R(j, i + 1);
     }
       
-  A[iq - 1] = A[iq];
-  u[iq - 1] = u[iq];
-  A[iq] = 0; 
-  u[iq] = 0.0;
+  A(iq - 1) = A(iq);
+  u(iq - 1) = u(iq);
+  A(iq) = 0; 
+  u(iq) = 0.0;
   for (j = 0; j < iq; j++)
-    R[j][iq - 1] = 0.0;
+    R(j, iq - 1) = 0.0;
   /* constraint has been fully removed */
   iq--;
 #ifdef TRACE_SOLVER
@@ -638,37 +644,37 @@ void delete_constraint(Matrix<double>& R, Matrix<double>& J, Vector<int>& A, Vec
   
   for (j = qq; j < iq; j++)
   {
-    cc = R[j][j];
-    ss = R[j + 1][j];
+    cc = R(j, j);
+    ss = R(j + 1, j);
     h = distance(cc, ss);
     if (fabs(h) < std::numeric_limits<double>::epsilon()) // h == 0
       continue;
     cc = cc / h;
     ss = ss / h;
-    R[j + 1][j] = 0.0;
+    R(j + 1, j) = 0.0;
     if (cc < 0.0)
     {
-      R[j][j] = -h;
+      R(j, j) = -h;
       cc = -cc;
       ss = -ss;
     }
     else
-      R[j][j] = h;
+      R(j, j) = h;
     
     xny = ss / (1.0 + cc);
     for (k = j + 1; k < iq; k++)
     {
-      t1 = R[j][k];
-      t2 = R[j + 1][k];
-      R[j][k] = t1 * cc + t2 * ss;
-      R[j + 1][k] = xny * (t1 + R[j][k]) - t2;
+      t1 = R(j, k);
+      t2 = R(j + 1, k);
+      R(j, k) = t1 * cc + t2 * ss;
+      R(j + 1, k) = xny * (t1 + R(j, k)) - t2;
     }
     for (k = 0; k < n; k++)
     {
-      t1 = J[k][j];
-      t2 = J[k][j + 1];
-      J[k][j] = t1 * cc + t2 * ss;
-      J[k][j + 1] = xny * (J[k][j] + t1) - t2;
+      t1 = J(k, j);
+      t2 = J(k, j + 1);
+      J(k, j) = t1 * cc + t2 * ss;
+      J(k, j + 1) = xny * (J(k, j) + t1) - t2;
     }
   }
 }
@@ -693,29 +699,29 @@ inline double distance(double a, double b)
 }
 
 
-inline double scalar_product(const Vector<double>& x, const Vector<double>& y)
+inline double scalar_product(const ublas::vector<double>& x, const ublas::vector<double>& y)
 {
   register int i, n = x.size();
   register double sum;
 	
   sum = 0.0;
   for (i = 0; i < n; i++)
-    sum += x[i] * y[i];
+    sum += x(i) * y(i);
   return sum;			
 }
 
-void cholesky_decomposition(Matrix<double>& A) 
+void cholesky_decomposition(ublas::matrix<double>& A) 
 {
-  register int i, j, k, n = A.nrows();
+  register int i, j, k, n = A.size1();
   register double sum;
 	
   for (i = 0; i < n; i++)
   {
     for (j = i; j < n; j++)
     {
-      sum = A[i][j];
+      sum = A(i, j);
       for (k = i - 1; k >= 0; k--)
-        sum -= A[i][k]*A[j][k];
+        sum -= A(i, k)*A(j, k);
       if (i == j) 
 	    {
 	      if (sum <= 0.0)
@@ -727,20 +733,20 @@ void cholesky_decomposition(Matrix<double>& A)
           throw std::logic_error(os.str());
           exit(-1);
         }
-	      A[i][i] = ::std::sqrt(sum);
+	      A(i, i) = ::std::sqrt(sum);
 	    }
       else
-        A[j][i] = sum / A[i][i];
+        A(j, i) = sum / A(i, i);
     }
     for (k = i + 1; k < n; k++)
-      A[i][k] = A[k][i];
+      A(i, k) = A(k, i);
   } 
 }
 
-void cholesky_solve(const Matrix<double>& L, Vector<double>& x, const Vector<double>& b)
+void cholesky_solve(const ublas::matrix<double>& L, ublas::vector<double>& x, const ublas::vector<double>& b)
 {
-  int n = L.nrows();
-  Vector<double> y(n);
+  int n = L.size1();
+  ublas::vector<double> y(n);
 	
   /* Solve L * y = b */
   forward_elimination(L, y, b);
@@ -748,49 +754,49 @@ void cholesky_solve(const Matrix<double>& L, Vector<double>& x, const Vector<dou
   backward_elimination(L, x, y);
 }
 
-inline void forward_elimination(const Matrix<double>& L, Vector<double>& y, const Vector<double>& b)
+inline void forward_elimination(const ublas::matrix<double>& L, ublas::vector<double>& y, const ublas::vector<double>& b)
 {
-  register int i, j, n = L.nrows();
+  register int i, j, n = L.size1();
 	
-  y[0] = b[0] / L[0][0];
+  y(0) = b(0) / L(0, 0);
   for (i = 1; i < n; i++)
   {
-    y[i] = b[i];
+    y(i) = b(i);
     for (j = 0; j < i; j++)
-      y[i] -= L[i][j] * y[j];
-    y[i] = y[i] / L[i][i];
+      y(i) -= L(i, j) * y(j);
+    y(i) = y(i) / L(i, i);
   }
 }
 
-inline void backward_elimination(const Matrix<double>& U, Vector<double>& x, const Vector<double>& y)
+inline void backward_elimination(const ublas::matrix<double>& U, ublas::vector<double>& x, const ublas::vector<double>& y)
 {
-  register int i, j, n = U.nrows();
+  register int i, j, n = U.size1();
 	
-  x[n - 1] = y[n - 1] / U[n - 1][n - 1];
+  x(n - 1) = y(n - 1) / U(n - 1, n - 1);
   for (i = n - 2; i >= 0; i--)
   {
-    x[i] = y[i];
+    x(i) = y(i);
     for (j = i + 1; j < n; j++)
-      x[i] -= U[i][j] * x[j];
-    x[i] = x[i] / U[i][i];
+      x(i) -= U(i, j) * x(j);
+    x(i) = x(i) / U(i, i);
   }
 }
 
-void print_matrix(const char* name, const Matrix<double>& A, int n, int m)
+void print_matrix(const char* name, const ublas::matrix<double>& A, int n, int m)
 {
   std::ostringstream s;
   std::string t;
   if (n == -1)
-    n = A.nrows();
+    n = A.size1();
   if (m == -1)
-    m = A.ncols();
+    m = A.size2();
 	
   s << name << ": " << std::endl;
   for (int i = 0; i < n; i++)
   {
     s << " ";
     for (int j = 0; j < m; j++)
-      s << A[i][j] << ", ";
+      s << A(i, j) << ", ";
     s << std::endl;
   }
   t = s.str();
@@ -800,7 +806,7 @@ void print_matrix(const char* name, const Matrix<double>& A, int n, int m)
 }
 
 template<typename T>
-void print_vector(const char* name, const Vector<T>& v, int n)
+void print_vector(const char* name, const ublas::vector<T>& v, int n)
 {
   std::ostringstream s;
   std::string t;
@@ -810,7 +816,7 @@ void print_vector(const char* name, const Vector<T>& v, int n)
   s << name << ": " << std::endl << " ";
   for (int i = 0; i < n; i++)
   {
-    s << v[i] << ", ";
+    s << v(i) << ", ";
   }
   t = s.str();
   t = t.substr(0, t.size() - 2); // To remove the trailing space and comma

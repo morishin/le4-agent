@@ -71,16 +71,20 @@ along with QuadProg++. If not, see <http://www.gnu.org/licenses/>.
 */
 
 
-#ifndef _QUADPROGPP
-#define _QUADPROGPP
+#ifndef _UQUADPROGPP
+#define _UQUADPROGPP
 
-#include "Array.hh"
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
 
-namespace QuadProgPP {
-  double solve_quadprog(Matrix<double>& G, Vector<double>& g0, 
-			const Matrix<double>& CE, const Vector<double>& ce0,  
-			const Matrix<double>& CI, const Vector<double>& ci0, 
-			Vector<double>& x);
+namespace uQuadProgPP {
+
+namespace ublas = boost::numeric::ublas;
+
+double solve_quadprog(ublas::matrix<double>& G, ublas::vector<double>& g0, 
+                      const ublas::matrix<double>& CE, const ublas::vector<double>& ce0,  
+                      const ublas::matrix<double>& CI, const ublas::vector<double>& ci0, 
+                      ublas::vector<double>& x);
 }
 
-#endif // #define _QUADPROGPP
+#endif // #define _UQUADPROGPP

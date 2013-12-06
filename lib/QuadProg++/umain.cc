@@ -50,13 +50,16 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include "QuadProg++.hh"
+#include "uQuadProg++.hh"
+#include <boost/numeric/ublas/vector.hpp>
+#include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/io.hpp>
 
-using namespace QuadProgPP;
+namespace ublas = boost::numeric::ublas;
 
 int main (int argc, char *const argv[]) {
-  Matrix<double> G, CE, CI;
-  Vector<double> g0, ce0, ci0, x;
+  ublas::matrix<double> G, CE, CI;
+  ublas::vector<double> g0, ce0, ci0, x;
 	int n, m, p;
 	double sum = 0.0;
 	char ch;
@@ -69,7 +72,7 @@ int main (int argc, char *const argv[]) {
 
 		for (int i = 0; i < n; i++)	
 			for (int j = 0; j < n; j++)
-				is >> G[i][j] >> ch;
+				is >> G(i, j) >> ch;
 	}
 	
   g0.resize(n);
@@ -77,7 +80,7 @@ int main (int argc, char *const argv[]) {
 		std::istringstream is("6.0, 0.0 ");
 
 		for (int i = 0; i < n; i++)
-			is >> g0[i] >> ch;
+			is >> g0(i) >> ch;
 	}
   
   m = 1;
@@ -88,7 +91,7 @@ int main (int argc, char *const argv[]) {
 
 		for (int i = 0; i < n; i++)
 			for (int j = 0; j < m; j++)
-				is >> CE[i][j] >> ch;
+				is >> CE(i, j) >> ch;
 	} 
   
   ce0.resize(m);
@@ -96,7 +99,7 @@ int main (int argc, char *const argv[]) {
 		std::istringstream is("-3.0 ");
 		
 		for (int j = 0; j < m; j++)
-			is >> ce0[j] >> ch;
+			is >> ce0(j) >> ch;
   }
 	
 	p = 3;
@@ -107,7 +110,7 @@ int main (int argc, char *const argv[]) {
   
 		for (int i = 0; i < n; i++)
 			for (int j = 0; j < p; j++)
-				is >> CI[i][j] >> ch;
+				is >> CI(i, j) >> ch;
 	}
   
   ci0.resize(p);
@@ -115,11 +118,11 @@ int main (int argc, char *const argv[]) {
 		std::istringstream is("0.0, 0.0, -2.0 ");
 
 		for (int j = 0; j < p; j++)
-			is >> ci0[j] >> ch;
+			is >> ci0(j) >> ch;
 	}
   x.resize(n);
 
-  std::cout << "f: " << solve_quadprog(G, g0, CE, ce0, CI, ci0, x) << std::endl;
+  std::cout << "f: " << uQuadProgPP::solve_quadprog(G, g0, CE, ce0, CI, ci0, x) << std::endl;
 	std::cout << "x: " << x << std::endl;
 /*  for (int i = 0; i < n; i++)
     std::cout << x[i] << ' ';
@@ -133,16 +136,16 @@ int main (int argc, char *const argv[]) {
 	
 		for (int i = 0; i < n; i++)
 			for (int j = 0; j < n; j++)
-				is >> G[i][j] >> ch;
+				is >> G(i, j) >> ch;
 	}
 	
   std::cout << "Double checking cost: ";
 	for (int i = 0; i < n; i++)
 		for (int j = 0; j < n; j++)
-			sum += x[i] * G[i][j] * x[j];
+			sum += x(i) * G(i, j) * x(j);
 	sum *= 0.5;	
 	
 	for (int i = 0; i < n; i++)
-		sum += g0[i] * x[i];
+		sum += g0(i) * x(i);
 	std::cout << sum << std::endl;
 }
