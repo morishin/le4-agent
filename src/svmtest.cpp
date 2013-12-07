@@ -1,16 +1,40 @@
 #include <iostream>
-#include <sstream>
-#include <string>
+#include <algorithm>
+#include <set>
+#include <cstdio>
+#include <exception>
+#include <cmath>
 #include <vector>
-#import <numeric>
 #include "../lib/QuadProg++/QuadProg++.hh"
 
 #define BUF_LEN 256
 
 using namespace QuadProgPP;
 
+class Kernel {
+public:
+  virtual double operator() (const Vector<double> x, const Vector<double> y) = 0;
+};
+
+class DotProd : public Kernel {
+public:
+  double operator() (const Vector<double> x, const Vector<double> y) {
+    return dot_prod(x, y);
+  };
+};
+
+class Gaussian : public Kernel {
+public:
+  Gaussian(double sigma):sigma(sigma){};
+  double operator() (const Vector<double> x, const Vector<double> y) {
+    return exp(-dot_prod(x - y, x - y) / 2.0 / sigma / sigma);
+  };
+private:
+  double sigma;
+};
+
 int main() {
-  std::vector<std::vector<double> > X;
+  std::vector<std::vector<double> > tmp;
   std::vector<double> *x;
   std::vector<double> y;
 
@@ -32,18 +56,25 @@ int main() {
       }
     }
 
-    X.push_back(*x);
+    tmp.push_back(*x);
   }
 
-  int n = X.size();
+  Matrix<double> X;
+  X.resize(tmp.size(), tmp[0].size());
+  for (size_t i = 0; i < tmp.size(); i++)
+    for (size_t j = 0; j < tmp[0].size(); j++)
+      X[i][j] = tmp[i][j];
+
+  int n = X.extractColumn(1).size();
   int p = n, m = 1;
 
   Matrix<double> G(n, n), CE(n, m), CI(n, p);
   Vector<double> g0(-1.0, n), ce0(0.0, m), ci0(0.0, p), alpha;
+  Kernel* kernel = new DotProd();
 
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
-      G[i][j] = y[i] * y[j] * inner_product(X[i].begin(), X[i].end(), X[j].begin(), 0);
+      G[i][j] = y[i] * y[j] * (*kernel)(X.extractRow(i), X.extractRow(j));
       if(i==j) G[i][j]+=1.0e-9;
     }
   }
