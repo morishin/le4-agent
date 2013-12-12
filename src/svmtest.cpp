@@ -11,6 +11,14 @@
 
 using namespace QuadProgPP;
 
+template<typename T>
+void print_vector(Vector<T> v) {
+  for (int i = 0; i < v.size(); ++i) {
+    std::cout << v[i] << " ";
+  }
+  std::cout << std::endl;
+}
+
 //カーネル - 関数オブジェクト
 class Kernel {
 public:
@@ -54,6 +62,74 @@ private:
   double a, b;
 };
 
+
+class SVM {
+public:
+  SVM(Matrix<double> x,
+      Vector<double> y,
+      Kernel* kernel):kernel(kernel), x(x), y(y) {
+
+    int n = x.extractColumn(0).size();
+    int p = n, m = 1;
+
+    Matrix<double> G(n, n), CE(n, m), CI(n, p);
+    Vector<double> g0(-1.0, n), ce0(0.0, m), ci0(0.0, p);
+
+    for (int i = 0; i < n; i++) {
+      for (int j = 0; j < n; j++) {
+        G[i][j] = y[i] * y[j] * (*kernel)(x.extractRow(i), x.extractRow(j));
+        if(i==j) G[i][j]+=1.0e-9;
+      }
+    }
+
+    for (int i = 0; i < n; ++i) {
+      CE[i][0] = y[i];
+      for (int j = 0; j < p; ++j) {
+        if (i==j) {
+          CI[i][j] = 1.0;
+        } else {
+          CI[i][j] = 0.0;
+        }
+      }
+    }
+
+    solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
+
+    w.resize(0, x.extractRow(0).size());
+    for (int i = 0; i < n; ++i) {
+      w += alpha[i] * y[i] * x.extractRow(i);
+    }
+
+    int t = 0;
+    for (int i = 0; i < n; ++i) {
+      t += dot_prod(w, x.extractRow(i)) - y[i];
+    }
+    theta = t / n;
+  };
+
+  void dump_alpha() {
+    int n = x.extractColumn(0).size();
+    for (int i = 0; i < n; ++i) {
+      std::cout << "alph[" << i << "] = " << std::fixed << std::setprecision(6) << alpha[i] << std::endl;
+    }
+  }
+
+  double discriminate(Vector<double> v){
+    if (dot_prod(w, v) - theta >= 1) {
+      return 1;
+    } else {
+      return -1;
+    }
+  }
+private:
+  Kernel* kernel;
+  Vector<double> alpha;
+  Vector<double> w;
+  double theta;
+  Matrix<double> x;
+  Vector<double> y;
+};
+
 Kernel *kernelWithName(const char *name){
   if (strcmp(name, "DotProd") == 0){
     return new DotProd();
@@ -69,8 +145,8 @@ Kernel *kernelWithName(const char *name){
 }
 
 int main(int argc, char *argv[]) {
-  std::vector<std::vector<double> > tmp;
-  std::vector<double> *x;
+  std::vector<std::vector<double> > x;
+  std::vector<double> *x_row;
   std::vector<double> y;
 
   Kernel *kernel;
@@ -114,59 +190,46 @@ int main(int argc, char *argv[]) {
   char buf[BUF_LEN];
   char *tp;
   while(fgets(buf, BUF_LEN, stdin) != NULL) {
-    x = new std::vector<double>();
+    x_row = new std::vector<double>();
 
     tp = strtok(buf, " ");
-    x->push_back(atof(tp));
+    x_row->push_back(atof(tp));
 
     while(tp != NULL) {
       tp = strtok(NULL, " ");
       if (tp != NULL) {
-        x->push_back(atof(tp));
+        x_row->push_back(atof(tp));
       } else {
-        y.push_back(x->back());
-        x->pop_back();
+        y.push_back(x_row->back());
+        x_row->pop_back();
       }
     }
 
-    tmp.push_back(*x);
+    x.push_back(*x_row);
   }
 
   Matrix<double> X;
-  X.resize(tmp.size(), tmp[0].size());
-  for (size_t i = 0; i < tmp.size(); i++)
-    for (size_t j = 0; j < tmp[0].size(); j++)
-      X[i][j] = tmp[i][j];
+  X.resize(x.size(), x[0].size());
+  for (size_t i = 0; i < x.size(); i++)
+    for (size_t j = 0; j < x[0].size(); j++)
+      X[i][j] = x[i][j];
 
-  int n = X.extractColumn(0).size();
-  int p = n, m = 1;
+  Vector<double> Y;
+  Y.resize(y.size());
+  for (size_t i = 0; i < y.size(); i++)
+    Y[i] = y[i];
 
-  Matrix<double> G(n, n), CE(n, m), CI(n, p);
-  Vector<double> g0(-1.0, n), ce0(0.0, m), ci0(0.0, p), alpha;
+  SVM svm(X, Y, kernel);
 
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-      G[i][j] = y[i] * y[j] * (*kernel)(X.extractRow(i), X.extractRow(j));
-      if(i==j) G[i][j]+=1.0e-9;
-    }
+  std::vector<double> result;
+  for (int i = 0; i < X.extractColumn(0).size(); ++i) {
+    result.push_back(svm.discriminate(X.extractRow(i)));
   }
+  Vector<double> R;
+  R.resize(result.size());
+  for (size_t i = 0; i < result.size(); i++)
+    R[i] = result[i];
 
-  for (int i = 0; i < n; ++i) {
-    CE[i][0] = y[i];
-    for (int j = 0; j < p; ++j) {
-      if (i==j) {
-        CI[i][j] = 1.0;
-      } else {
-        CI[i][j] = 0.0;
-      }
-    }
-  }
-
-  solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
-
-  for (int i = 0; i < n; ++i) {
-    std::cout << "alph[" << i << "] = " << std::fixed << std::setprecision(6) << alpha[i] << std::endl;
-  }
-
+  print_vector(Y-R);
   return 0;
 }
