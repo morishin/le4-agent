@@ -1,5 +1,6 @@
 .DS_Store
 *.out
+report/*
 
 # Compiled Object files
 *.slo
