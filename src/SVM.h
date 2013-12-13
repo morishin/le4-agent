@@ -44,21 +44,17 @@ private:
   double a, b;
 };
 
-
 class SVM {
 public:
   SVM(Matrix<double> _x,
       Vector<double> _y,
       Kernel* _kernel);
-  void dump_alpha();
-  void dump_weight();
   double discriminate(Vector<double> v);
   void printAlpha();
-  void printWeight();
+  void printTheta();
 private:
   Kernel* kernel;
   Vector<double> alpha;
-  Vector<double> w;
   double theta;
   Matrix<double> x;
   Vector<double> y;

@@ -5,6 +5,7 @@
 
 using namespace QuadProgPP;
 
+// Vectorを標準出力する
 template<typename T>
 void printVector(const Vector<T>& v) {
   for (int i = 0; i < v.size(); ++i) {
@@ -13,6 +14,7 @@ void printVector(const Vector<T>& v) {
   std::cout << std::endl;
 }
 
+// vectorをVectorに変換
 template<typename T>
 Vector<T> extendVector(const std::vector<T>& v){
   Vector<T> V;
@@ -22,6 +24,7 @@ Vector<T> extendVector(const std::vector<T>& v){
   return V;
 }
 
+// カーネル名からKernelオブジェクト生成
 Kernel *kernelWithName(const char *name){
   if (strcmp(name, "DotProd") == 0){
     return new DotProd();
@@ -30,7 +33,7 @@ Kernel *kernelWithName(const char *name){
   } else if (strcmp(name, "Polynomial") == 0){
     return new Polynomial(2);
   } else if (strcmp(name, "Sigmoid") == 0){
-    return new Sigmoid(1, 4);
+    return new Sigmoid(0.01, -3);
   } else {
     throw 1;
   }
@@ -41,6 +44,7 @@ int main(int argc, char *argv[]) {
   std::vector<double> *x_row;
   std::vector<double> y;
 
+  // コマンドライン引数のカーネル名kernel_nameから、Kernelを生成
   Kernel *kernel;
   const char *kernel_name;  
   try {
@@ -79,6 +83,7 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  // サンプルデータを標準入力から受け、vectorに格納
   char buf[BUF_LEN];
   char *tp;
   while(fgets(buf, BUF_LEN, stdin) != NULL) {
@@ -100,18 +105,22 @@ int main(int argc, char *argv[]) {
     x.push_back(*x_row);
   }
 
+  // サンプルデータ点をXに格納
   Matrix<double> X;
   X.resize(x.size(), x[0].size());
   for (size_t i = 0; i < x.size(); i++)
     for (size_t j = 0; j < x[0].size(); j++)
       X[i][j] = x[i][j];
-
+  // サンプルデータ点に対するクラスをYに格納
   Vector<double> Y = extendVector(y);
 
+  // SVMオブジェクトを生成 コンストラクタ内で学習をする
   SVM svm(X, Y, kernel);
 
+  // パラメータを出力
   svm.printAlpha();
-  
+  svm.printTheta();
+
   /*
   std::vector<double> r;
   for (int i = 0; i < X.extractColumn(0).size(); ++i) {
@@ -119,7 +128,8 @@ int main(int argc, char *argv[]) {
   }
   Vector<double> R = extendVector(r);
 
-  printVector(Y-R);
+  std::cout << "result:" << std::fixed << std::setprecision(0) << std::endl;
+  printVector(Y);
   */
 
   return 0;

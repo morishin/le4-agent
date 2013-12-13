@@ -1,11 +1,12 @@
 #include "SVM.h"
+#define epsilon 1.0e-5
 
 using namespace QuadProgPP;
 
 SVM::SVM(Matrix<double> _x,
         Vector<double> _y,
         Kernel* _kernel):kernel(_kernel), x(_x), y(_y) {
-  int n = x.extractColumn(0).size();
+  int n = x.nrows();
   int p = n, m = 1;
 
   Matrix<double> G(n, n), CE(n, m), CI(n, p);
@@ -32,33 +33,25 @@ SVM::SVM(Matrix<double> _x,
 
   solve_quadprog(G, g0, CE, ce0, CI, ci0, alpha);
 
-  /*
-  w.resize(0, x.extractRow(0).size());
   for (int i = 0; i < n; ++i) {
-    w += alpha[i] * y[i] * x.extractRow(i);
+    if (alpha[i] > epsilon) {
+      for (int j = 0; j < n; ++j) {
+        theta += alpha[j] * y[j] * (*kernel)(x.extractRow(j), x.extractRow(i));
+      }
+      theta -= y[i];
+      break;
+    }
   }
-
-  double t = 0.0;
-  for (int i = 0; i < n; ++i) {
-    t += dot_prod(w, x.extractRow(i)) - y[i];
-  }
-  theta = t / n;
-  std::cout << "theta: " << theta << std::endl;
-  */
 };
 
 void SVM::printAlpha() {
-  for (int i = 0; i < x.extractColumn(0).size(); ++i) {
+  for (int i = 0; i < x.nrows(); ++i) {
     std::cout << "alph[" << i << "] = " << std::fixed << std::setprecision(6) << alpha[i] << std::endl;
   }
 }
 
-void SVM::printWeight() {
-  std::cout << "weight: ";
-  for (int i = 0; i < w.size(); ++i) {
-    std::cout << w[i] << " ";
-  }
-  std::cout << std::endl;
+void SVM::printTheta() {
+  std::cout << "theta: " << theta << std::endl;
 }
 
 double SVM::discriminate(Vector<double> v){
@@ -66,7 +59,7 @@ double SVM::discriminate(Vector<double> v){
   for (int i = 0; i < y.size(); ++i) {
     sum += alpha[i] * y[i] * (*kernel)(x.extractRow(i), v);
   }
-  if (sum - theta >= 1) {
+  if (sum - theta >= 0) {
     return 1;
   } else {
     return -1;
