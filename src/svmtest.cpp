@@ -1,9 +1,3 @@
-#include <iostream>
-#include <algorithm>
-#include <set>
-#include <cstdio>
-#include <exception>
-#include <cmath>
 #include <vector>
 #include "SVM.h"
 
@@ -12,11 +6,20 @@
 using namespace QuadProgPP;
 
 template<typename T>
-void print_vector(Vector<T> v) {
+void printVector(const Vector<T>& v) {
   for (int i = 0; i < v.size(); ++i) {
     std::cout << v[i] << " ";
   }
   std::cout << std::endl;
+}
+
+template<typename T>
+Vector<T> extendVector(const std::vector<T>& v){
+  Vector<T> V;
+  V.resize(v.size());
+  for (size_t i = 0; i < v.size(); i++)
+    V[i] = v[i];
+  return V;
 }
 
 Kernel *kernelWithName(const char *name){
@@ -103,22 +106,21 @@ int main(int argc, char *argv[]) {
     for (size_t j = 0; j < x[0].size(); j++)
       X[i][j] = x[i][j];
 
-  Vector<double> Y;
-  Y.resize(y.size());
-  for (size_t i = 0; i < y.size(); i++)
-    Y[i] = y[i];
+  Vector<double> Y = extendVector(y);
 
   SVM svm(X, Y, kernel);
 
-  std::vector<double> result;
+  svm.printAlpha();
+  
+  /*
+  std::vector<double> r;
   for (int i = 0; i < X.extractColumn(0).size(); ++i) {
-    result.push_back(svm.discriminate(X.extractRow(i)));
+    r.push_back(svm.discriminate(X.extractRow(i)));
   }
-  Vector<double> R;
-  R.resize(result.size());
-  for (size_t i = 0; i < result.size(); i++)
-    R[i] = result[i];
+  Vector<double> R = extendVector(r);
 
-  print_vector(Y-R);
+  printVector(Y-R);
+  */
+
   return 0;
 }
