@@ -1,5 +1,6 @@
 #include <vector>
-#include "SVM.h"
+//#include "SVM.h"
+#include "CrossValid.h"
 
 #define BUF_LEN 256
 
@@ -111,17 +112,21 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < x.size(); i++)
     for (size_t j = 0; j < x[0].size(); j++)
       X[i][j] = x[i][j];
-    
-  printVector(X.extractRow(0));
+
   // サンプルデータ点に対するクラスをYに格納
   Vector<double> Y = extendVector(y);
 
+  CrossValid crossValid(X, Y, kernel);
+  crossValid.calcAccuracyRate(5);
+
+  /*
   // SVMオブジェクトを生成 コンストラクタ内で学習をする
   SVM svm(X, Y, kernel);
 
   // パラメータを出力
   svm.printAlpha();
   svm.printTheta();
+  */
 
   /*
   std::vector<double> r;

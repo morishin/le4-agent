@@ -1,4 +1,5 @@
 #include "../lib/QuadProg++/QuadProg++.hh"
+#include "SVM.h"
 
 using namespace QuadProgPP;
 
@@ -7,7 +8,7 @@ public:
   CrossValid(Matrix<double> _x,
              Vector<double> _y,
              Kernel* _kernel);
-  calcAccuracyRate(int n);
+  void calcAccuracyRate(int n);
 private:
   Kernel* kernel;
   Matrix<double> x;
