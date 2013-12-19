@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
   Vector<double> Y = extendVector(y);
 
   CrossValid crossValid(X, Y, kernel);
-  crossValid.calcAccuracyRate(5);
+  crossValid.calcAccuracyRate(10);
 
   /*
   // SVMオブジェクトを生成 コンストラクタ内で学習をする

@@ -1,4 +1,5 @@
 #include <set>
+#include <vector>
 #include "CrossValid.h"
 
 using namespace QuadProgPP;
@@ -17,9 +18,34 @@ void printMatrix(Matrix<double>& A) {
   std::cout << std::endl;
 }
 
-void CrossValid::calcAccuracyRate(int n){
+// vectorをVectorに変換
+template<typename T>
+Vector<T> extendVector(const std::vector<T>& v){
+  Vector<T> V;
+  V.resize(v.size());
+  for (size_t i = 0; i < v.size(); i++)
+    V[i] = v[i];
+  return V;
+}
+
+double accuracyRate(const Vector<double>& v1, const Vector<double>& v2) {
+  int n_errors = 0;
+  for(int i=0; i<v1.size(); ++i) {
+    if(v1[i] != v2[i])
+      n_errors++;
+  }
+  return n_errors/double(v1.size());
+}
+
+double CrossValid::calcAccuracyRate(int n){
   Matrix<double> learningVectors, evalVectors;
+  Vector<double> learningAnswerVector, evalAnswerVector;
   std::set<unsigned int> lerningIndexes, evalIndexes;
+  std::vector<double> result;
+  Vector<double> R;
+
+  double ar = 0;
+
   int n_indexes = int(x.nrows() / n);
   for(int i=0; i<n; ++i) {
     lerningIndexes.clear();
@@ -31,9 +57,19 @@ void CrossValid::calcAccuracyRate(int n){
         lerningIndexes.insert(j);
     }
     learningVectors = x.extractRows(lerningIndexes);
+    learningAnswerVector = y.extract(lerningIndexes);
     evalVectors = x.extractRows(evalIndexes);
+    evalAnswerVector = y.extract(evalIndexes);
 
-    printMatrix(evalVectors);
-    printMatrix(learningVectors);    
+    SVM svm(learningVectors, learningAnswerVector, kernel);
+
+    result.clear();
+    for (int j=0; j<evalVectors.nrows(); ++j)
+      result.push_back(svm.discriminate(evalVectors.extractRow(j)));
+    R = extendVector(result);
+
+    ar = accuracyRate(y, R);
+    std::cout << "ar: " << ar << std::endl;
   }
+  return ar/n;
 }

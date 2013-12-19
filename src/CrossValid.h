@@ -8,7 +8,7 @@ public:
   CrossValid(Matrix<double> _x,
              Vector<double> _y,
              Kernel* _kernel);
-  void calcAccuracyRate(int n);
+  double calcAccuracyRate(int n);
 private:
   Kernel* kernel;
   Matrix<double> x;
