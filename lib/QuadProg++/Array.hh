@@ -1037,8 +1037,8 @@ inline Matrix<T>& Matrix<T>::operator=(const Matrix<T> &rhs)
     {
       resize(rhs.n, rhs.m);
       for (i = 0; i < n; i++) 
-	for (j = 0; j < m; j++) 
-	  v[i][j] = rhs[i][j]; 
+      	for (j = 0; j < m; j++) 
+      	  v[i][j] = rhs[i][j]; 
     } 
   return *this; 
 } 

@@ -111,6 +111,8 @@ int main(int argc, char *argv[]) {
   for (size_t i = 0; i < x.size(); i++)
     for (size_t j = 0; j < x[0].size(); j++)
       X[i][j] = x[i][j];
+    
+  printVector(X.extractRow(0));
   // サンプルデータ点に対するクラスをYに格納
   Vector<double> Y = extendVector(y);
 
