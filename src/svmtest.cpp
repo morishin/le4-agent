@@ -117,8 +117,9 @@ int main(int argc, char *argv[]) {
   Vector<double> Y = extendVector(y);
 
   CrossValid crossValid(X, Y, kernel);
-  crossValid.calcAccuracyRate(10);
+  double accuracyRate = crossValid.calcAccuracyRate(10);
 
+  std::cout << "ave: " << accuracyRate << std::endl;
   /*
   // SVMオブジェクトを生成 コンストラクタ内で学習をする
   SVM svm(X, Y, kernel);
