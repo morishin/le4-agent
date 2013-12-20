@@ -63,7 +63,7 @@ double CrossValid::calcAccuracyRate(int n){
   double ar = 0;
 
   int n_indexes = int(x.nrows() / float(n));
-  std::cout << "n_indexes: " << n_indexes << std::endl;
+  // std::cout << "n_indexes: " << n_indexes << std::endl;
   for(int i=0; i<n; ++i) {
     lerningIndexes.clear();
     evalIndexes.clear();
@@ -100,20 +100,24 @@ double CrossValid::calcAccuracyRate(int n){
     // fprintf(gp, "exit\n");
     // fflush(gp);
     // pclose(gp);
-    
+
     svm = new SVM(learningVectors, learningAnswerVector, kernel);
 
     result.clear();
-    for (int j=0; j<evalVectors.nrows(); ++j)
-      result.push_back(svm->discriminate(evalVectors.extractRow(j)));
+    for (int j=0; j<evalVectors.nrows(); ++j) {
+      Vector<double> vec = evalVectors.extractRow(j);
+      printVector(vec);
+      result.push_back(svm->discriminate(vec));
+    }
     R = extendVector(result);
 
-    printVector(R);
-    printVector(evalAnswerVector);
-    double tmp = accuracyRate(R, evalAnswerVector);
-    std::cout << i << ": " << tmp << std::endl;
-    std::cout << "----------" << std::endl;
-    ar += tmp;
+    // printVector(R);
+    // printVector(evalAnswerVector);
+    // double tmp = accuracyRate(R, evalAnswerVector);
+    // std::cout << i << ": " << tmp << std::endl;
+    // std::cout << "----------" << std::endl;
+    // ar += tmp;
+    ar += accuracyRate(R, evalAnswerVector);
   }
 
   return ar/n;

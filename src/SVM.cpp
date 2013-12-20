@@ -8,7 +8,6 @@ SVM::SVM(Matrix<double> _x,
         Kernel* _kernel):kernel(_kernel), x(_x), y(_y) {
   int n = x.nrows();
   int p = n, m = 1;
-
   Matrix<double> G(n, n), CE(n, m), CI(n, p);
   Vector<double> g0(-1.0, n), ce0(0.0, m), ci0(0.0, p);
 
@@ -58,6 +57,7 @@ double SVM::discriminate(Vector<double> v){
   double sum = 0;
   for (int i = 0; i < y.size(); ++i) {
     sum += alpha[i] * y[i] * (*kernel)(x.extractRow(i), v);
+    // std::cout << v[i] << std::endl;
   }
   if (sum - theta >= 0) {
     return 1;
