@@ -105,8 +105,9 @@ double CrossValid::calcAccuracyRate(int n){
 
     result.clear();
     for (int j=0; j<evalVectors.nrows(); ++j) {
-      Vector<double> vec = evalVectors.extractRow(j);
-      printVector(vec);
+      //Vector<double> vec = Vector<double>(evalVectors.extractRow(j));  //受け取った先の関数で壊れてる
+      Vector<double> vec(evalVectors.extractRow(j));  //受け取った先の関数で壊れてる
+      //printVector(vec);
       result.push_back(svm->discriminate(vec));
     }
     R = extendVector(result);

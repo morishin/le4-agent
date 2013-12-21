@@ -3,6 +3,15 @@
 
 using namespace QuadProgPP;
 
+// Vectorを標準出力する
+template<typename T>
+void printVector(const Vector<T>& v) {
+  for (int i = 0; i < v.size(); ++i) {
+    std::cout << v[i] << " ";
+  }
+  std::cout << std::endl;
+}
+
 SVM::SVM(Matrix<double> _x,
         Vector<double> _y,
         Kernel* _kernel):kernel(_kernel), x(_x), y(_y) {
@@ -55,9 +64,9 @@ void SVM::printTheta() {
 
 double SVM::discriminate(Vector<double> v){
   double sum = 0;
+    printVector(v); //こわれてる(◞‸◟)
   for (int i = 0; i < y.size(); ++i) {
     sum += alpha[i] * y[i] * (*kernel)(x.extractRow(i), v);
-    // std::cout << v[i] << std::endl;
   }
   if (sum - theta >= 0) {
     return 1;
