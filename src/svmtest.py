@@ -21,7 +21,6 @@ def crossValidation(X, Y, k, kernel=np.dot):
     answerForlearningVectors = np.hstack((Y[:l*i], Y[l*(i+1):]))
 
     svm = SVM(learningVectors, answerForlearningVectors, kernel)
-    if i==1: svm.plot()
     result = [svm.discriminate(t) for t in testVectors]
 
     ac += accuracyRate(result, answerForTestVectors)

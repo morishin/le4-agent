@@ -60,14 +60,12 @@ class SVM(object):
     self.theta = theta
 
   def discriminate(self, v):
-    ### circleで結果おかしくなる
     # result = np.dot(self.w, v) + self.theta
 
-    ###
-    # linearで結果おかしくなる
     result = 0
     for i in range(len(self.Y)):
       result += self.alpha[i] * self.Y[i] * self.kernel(self.X[i], v)
+    result += self.theta
 
     if result >= 0:
       return 1
