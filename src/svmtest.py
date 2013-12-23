@@ -61,6 +61,13 @@ class SVM(object):
     theta /= len(S)
     self.theta = theta
 
+  def discriminate(self, v):
+    result = np.dot(self.w, v) + self.theta
+    if result >= 0:
+      return 1
+    else:
+      return -1
+
   def plot(self):
     if len(self.X[0])!=2:
       print 'can plot only 2-D data'
@@ -96,6 +103,8 @@ if __name__ == '__main__':
 
   svm = SVM(X, Y)
 
-  svm.plot()
+  # svm.plot()
+
+  print [svm.discriminate(x) for x in X]
 
   
