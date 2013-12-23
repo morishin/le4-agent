@@ -4,9 +4,6 @@ import cvxopt
 import cvxopt.solvers
 from pylab import *
 
-def gaussian(x, y, sigma=10):
-  return exp(-np.dot(x-y, x-y) / (2*sigma**2))
-
 class SVM(object):
   def __init__(self, X, Y, kernel=np.dot):
     self.X = X
@@ -27,6 +24,8 @@ class SVM(object):
     for i in range(n):
       for j in range(n):
         g[i, j] = self.Y[i] * self.Y[j] * self.kernel(self.X[i], self.X[j])
+        if i==j:
+          g[i, j] += 1.0e-9
 
     G = cvxopt.matrix(g)
     g0 = cvxopt.matrix(-np.ones(n))
@@ -61,7 +60,15 @@ class SVM(object):
     self.theta = theta
 
   def discriminate(self, v):
-    result = np.dot(self.w, v) + self.theta
+    ### circleで結果おかしくなる
+    # result = np.dot(self.w, v) + self.theta
+
+    ###
+    # linearで結果おかしくなる
+    result = 0
+    for i in range(len(self.Y)):
+      result += self.alpha[i] * self.Y[i] * self.kernel(self.X[i], v)
+
     if result >= 0:
       return 1
     else:
