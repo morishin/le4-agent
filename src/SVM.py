@@ -69,8 +69,6 @@ class SVM(object):
 
   # 識別関数
   def discriminate(self, v):
-    # result = np.dot(self.w, v) + self.theta
-
     result = 0
     for i in range(len(self.Y)):
       result += self.alpha[i] * self.Y[i] * self.kernel(self.X[i], v)

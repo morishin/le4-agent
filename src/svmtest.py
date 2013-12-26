@@ -31,11 +31,11 @@ def crossValidation(X, Y, k, kernel=np.dot):
     # l個の評価ベクトルとそのクラス
     testVectors = X[l*i:l*(i+1)]
     classForTestVectors = Y[l*i:l*(i+1)]
-    # n-l個の学習ベクトルとそのクラス
+    # n-l個の訓練ベクトルとそのクラス
     learningVectors = np.vstack((X[:l*i], X[l*(i+1):]))
     classForlearningVectors = np.hstack((Y[:l*i], Y[l*(i+1):]))
 
-    # 学習ベクトルからサポートベクターを計算
+    # 訓練ベクトルからサポートベクターを計算
     svm = SVM(learningVectors, classForlearningVectors, kernel)
     # 学習した識別関数で評価ベクトルを識別
     result = [svm.discriminate(t) for t in testVectors]
@@ -70,6 +70,10 @@ if __name__ == '__main__':
   d = len(D[0])-1   # データ点の次元
   X = D[:, :d]      # データ点の配列
   Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
+
+  # サポートベクタ, 識別関数のプロット
+  # svm = SVM(X, Y, kernel)
+  # svm.plot()
 
   # 交差検定
   ar = crossValidation(X, Y, 10, kernel)
