@@ -3,20 +3,24 @@ import numpy as np
 import cvxopt
 import cvxopt.solvers
 from pylab import *
+cvxopt.solvers.options['show_progress'] = False
 
+# SVMクラス
 class SVM(object):
+  # コンストラクタ
   def __init__(self, X, Y, kernel=np.dot):
-    self.X = X
-    self.Y = Y
-    self.kernel = kernel
+    self.X = X            # データ点
+    self.Y = Y            # データ点の属するクラス
+    self.kernel = kernel  # カーネルトリック
 
-    # self.alpha
-    # self.S
-    # self.w
-    # self.theta
+    self.alpha = []       # 二次計画問題の解
+    self.S = []           # サポートベクタのインデックスの配列
+    self.w = 0.0          # 重みベクタ
+    self.theta = 0.0      # 閾値
 
-    self.calc()
+    self.calc()           # 二次計画問題の計算
 
+  # 二次計画問題の計算
   def calc(self):
     n = len(self.X)
     d = len(self.X[0])
@@ -27,6 +31,7 @@ class SVM(object):
         if i==j:
           g[i, j] += 1.0e-9
 
+    # 二次計画問題のパラメータ設定
     G = cvxopt.matrix(g)
     g0 = cvxopt.matrix(-np.ones(n))
     CE = cvxopt.matrix(self.Y, (1, n))
@@ -34,22 +39,25 @@ class SVM(object):
     CI = cvxopt.matrix(np.diag([-1.0]*n))
     ci0 = cvxopt.matrix(np.zeros(n))
 
-    cvxopt.solvers.options['show_progress'] = False
+    # CVXOPTライブラリによる二次計画問題の解の算出
     sol = cvxopt.solvers.qp(G, g0, CI, ci0, CE, ce0)
     alpha = array(sol['x']).reshape(n)
     self.alpha = alpha
 
+    # サポートベクターのインデックスの配列
     S = []
     for i, a in enumerate(alpha):
       if a > 0.00001:
         S.append(i)
     self.S = S
 
+    # w: 重みベクタ
     w = np.zeros(d)
     for i in S:
       w += alpha[i] * self.Y[i] * self.X[i]
     self.w = w
 
+    # θ: 閾値
     theta = 0
     for i in S:
       temp = 0
@@ -59,6 +67,7 @@ class SVM(object):
     theta /= len(S)
     self.theta = theta
 
+  # 識別関数
   def discriminate(self, v):
     # result = np.dot(self.w, v) + self.theta
 
@@ -72,9 +81,10 @@ class SVM(object):
     else:
       return -1
 
+  # pylabによるプロット関数(入力が二次元の時のみ動作)
   def plot(self):
     if len(self.X[0])!=2:
-      print 'can plot only 2-D data'
+      print 'can plot only 2D-type data'
       return
 
     def f(x1, w, b):
