@@ -7,10 +7,12 @@ BUF_LEN = 256
 def send():
   msg = raw_input() + '\n'
   clientsock.sendall(msg)
+  return msg
 
 def receive():
   msg = clientsock.recv(BUF_LEN)
   print msg,
+  return msg
 
 # コマンドライン引数処理
 if len(sys.argv) < 3:
