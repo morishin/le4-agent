@@ -1,6 +1,8 @@
 #coding:utf-8
 import sys
 import socket
+import numpy as np
+from scipy.linalg import norm
 from random import randint
 from pprint import pprint
 from SVM import SVM
@@ -172,14 +174,30 @@ if __name__ == '__main__':
           continue
         if agentName not in bidHistory:
           bidHistory[agentName] = []
-        bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
-        bids = bidHistory[agentName][-1]['bids']
+        for historyForItemSet in bidHistory[agentName]:
+          if historyForItemSet['itemSet'] == itemSet:
+            break
+        else:
+          bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
+          historyForItemSet = bidHistory[agentName][-1]
         for price, bid in zip(priceList, bidList):
+          price = map(float, price)
+          price = subSequenceWithIndexes(itemSet, price)
           bidSet = subSequenceWithIndexes(itemSet, bid[agentNumber])
           if listIsOnes(bidSet):
-            bids.append(price + [1])
+            historyForItemSet['bids'].append(price + [1.0])
           else:
-            bids.append(price + [-1])
+            historyForItemSet['bids'].append(price + [-1.0])
+
+        # SVMを作成
+        if date > 3:
+          D = np.array(historyForItemSet['bids'])
+          n = len(D)        # データ点の個数
+          d = len(D[0])-1   # データ点の次元
+          X = D[:, :d]      # データ点の配列
+          Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
+          svm = SVM(X, Y)
+          historyForItemSet['svm'] = svm
 
     # この日の入札履歴を表示
     pprint(bidHistory)
@@ -196,7 +214,8 @@ if __name__ == '__main__':
 #         [0, 1],
 #         [1, 1],
 #         [2, -1]
-#       ]
+#       ],
+#       'svm': <SVM object>
 #     },
 #     {
 #       'itemSet': [1],
@@ -204,7 +223,8 @@ if __name__ == '__main__':
 #         [0, 1],
 #         [1, -1],
 #         [2, -1]
-#       ]
+#       ],
+#       'svm': <SVM object>
 #     },
 #     {
 #       'itemSet': [0, 1],
@@ -212,7 +232,8 @@ if __name__ == '__main__':
 #         [0, 0, 1],
 #         [1, 1, -1],
 #         [2, 1, -1]
-#       ]
+#       ],
+#       'svm': <SVM object>
 #     }
 #   ],
 #
