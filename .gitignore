@@ -1,6 +1,7 @@
 .DS_Store
 report/*
 server1.2_2013/*
+*.pyc
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
