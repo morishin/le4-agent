@@ -2,6 +2,7 @@
 import sys
 import socket
 from random import randint
+from pprint import pprint
 
 BUF_LEN = 256
 
@@ -22,6 +23,27 @@ def createBids():
     bids += str(randint(0, 1))
   return bids
 
+def subSequenceWithIndexes(indexes, sequence):
+  sub = []
+  for i in indexes:
+    sub.append(sequence[i])
+  return sub
+
+def listIsOnes(ls):
+  for x in ls:
+    if int(x) != 1:
+      return False
+  return True
+
+# 与えられた集合（配列）のべき集合の要素を順に返すジェネレータ
+def powersetGenerator(provided_set):
+  if len(provided_set) > 0:
+    for c in powersetGenerator(provided_set[1:]):
+      yield [provided_set[0]] + c
+      yield c
+  else:
+    yield []
+
 # コマンドライン引数処理
 if len(sys.argv) < 3:
   print 'usage: python client.py [hostname] [port]'
@@ -41,7 +63,7 @@ agentName = 'AGENT%02d' % randint(0, 99)
 send(agentName)
 
 # エージェントリストを受信して名前のリストを生成
-agentList = map((lambda x: x[x.find(':')+1:]), receive().split())
+agentNameList = map((lambda x: x[x.find(':')+1:]), receive().split())
 
 # 自分のIDを受信
 myID = int(receive()[9:])
@@ -55,8 +77,7 @@ bidList = []
 
 while True:
   # 入札額を決定し送信
-  # send(createBids())
-  send()
+  send(createBids())
 
   # 入札結果を受信してリストに蓄積
   result = map((lambda x: x[x.find(':')+1:]), receive().split())
@@ -75,8 +96,38 @@ while True:
 # 接続を閉じる
 clientsock.close()
 
-print priceList
-print bidList
+#####################
+# 以下で入札履歴を作成
+
+# 入札履歴のデータを蓄積するディクショナリ
+bidHistory = {}
+
+# 全ての商品組のリストを生成
+itemPowerSet = powersetGenerator(range(nItems))
+
+# 商品組毎に入札履歴を作成する
+for itemSet in itemPowerSet:
+  if itemSet == []:
+    # 全ての商品組について処理を終えたら抜ける
+    break
+
+  # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
+  itemSet.sort()
+
+  # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
+  for agentNumber, agentName in enumerate(agentNameList):
+    if agentName not in bidHistory:
+      bidHistory[agentName] = []
+    bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
+    bids = bidHistory[agentName][-1]['bids']
+    for price, bid in zip(priceList, bidList):
+      bidSet = subSequenceWithIndexes(itemSet, bid[agentNumber])
+      if listIsOnes(bidSet):
+        bids.append(price + [1])
+      else:
+        bids.append(price + [-1])
+
+pprint(bidHistory)
 
 # priceList と bidList から SVM作成に必要なデータを作る (以下のようなDictionary)
 # {
