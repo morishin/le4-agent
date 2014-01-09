@@ -3,160 +3,189 @@ import sys
 import socket
 from random import randint
 from pprint import pprint
+from SVM import SVM
 
 BUF_LEN = 256
 
+#===========================================================================
+# 関数定義
+#===========================================================================
+
+# サーバへ送信
 def send(msg=None):
+  # 引数無しの時はユーザーからの入力を受け付ける
   if msg==None:
     msg = raw_input()
   clientsock.sendall(msg + '\n')
   print msg
 
+# サーバから受信
 def receive():
   msg = clientsock.recv(BUF_LEN)
   print msg.rstrip()
   return msg
 
+# 入札を生成 (現在はランダムで入札するかどうか決定している)
 def createBids():
   bids = ''
   for i in xrange(0, nItems):
     bids += str(randint(0, 1))
   return bids
 
+# リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
 def subSequenceWithIndexes(indexes, sequence):
   sub = []
   for i in indexes:
     sub.append(sequence[i])
   return sub
 
+# リストの要素が全て1かどうか
 def listIsOnes(ls):
   for x in ls:
     if int(x) != 1:
       return False
   return True
 
-# 与えられた集合（配列）のべき集合の要素を順に返すジェネレータ
-def powersetGenerator(provided_set):
-  if len(provided_set) > 0:
-    for c in powersetGenerator(provided_set[1:]):
-      yield [provided_set[0]] + c
+# 与えられたリストの冪集合の要素を順に返すジェネレータ
+def powersetGenerator(ls):
+  if len(ls) > 0:
+    for c in powersetGenerator(ls[1:]):
+      yield [ls[0]] + c
       yield c
   else:
     yield []
 
-# コマンドライン引数からhostとportを取得
-if len(sys.argv) < 3:
-  print 'usage: python client.py [hostname] [port]'
-  exit(1)
+# カーネルトリック
+def gaussianKernel(x, y, sigma=10):
+  return np.exp(-norm(x-y)**2 / (2*sigma**2))
+def sigmoidKernel(x, y, a=0.002, b=-1.5):
+  return np.tanh(a * np.dot(x, y) - b)
+def polynomialKernel(x, y, d=2):
+  return (1 + np.dot(x, y))**d
 
-host = sys.argv[1]
-port = int(sys.argv[2])
 
-# 自分の名前を設定
-myName = 'AGENT%02d' % randint(0, 99)
-# 入札履歴のデータを蓄積するディクショナリ
-bidHistory = {}
-# オークションが何日目か
-date = 0
+#===========================================================================
+# メイン処理
+#===========================================================================
 
-while True:
-  # オークションを続けるかどうか尋ねる
-  if date != 0:
-    while True:
-      print 'continue? [y/n] ',
-      ans = raw_input().rstrip()
-      if ans == 'y':
-        continued = True
-        break
-      elif ans == 'n':
-        continued = False
-        break
-    if not continued:
-      # 'n'だったら終了
-      print 'END'
-      exit(0)
+if __name__ == '__main__':
+  # コマンドライン引数からhostとportを取得
+  if len(sys.argv) < 3:
+    print 'usage: python client.py [hostname] [port]'
+    exit(1)
 
-  # サーバに接続
-  clientsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  clientsock.connect((host,port))
+  host = sys.argv[1]
+  port = int(sys.argv[2])
 
-  # PLEASE INPUT YOUR NAMEを受信
-  receive()
+  # 自分の名前を設定
+  myName = 'AGENT%02d' % randint(0, 99)
+  # 入札履歴のデータを蓄積するディクショナリ
+  bidHistory = {}
+  # オークションが何日目か
+  date = 0
 
-  # 名前を送信
-  send(myName)
-
-  # エージェントリストを受信して名前のリストを生成
-  agentNameList = map((lambda x: x[x.find(':')+1:]), receive().split())
-
-  # 自分のIDを受信
-  myID = int(receive()[9:])
-
-  # 商品の数, エージェントの数を受信
-  nItems, nAgents = map(int, receive().split(','))
-
-  # 商品価格と入札結果を蓄積するリスト
-  priceList = []
-  bidList = []
-
-  # オークション実施中のループ
   while True:
-    # 入札額を決定し送信
-    send(createBids())
+    # オークションを続けるかどうか尋ねる
+    if date != 0:
+      while True:
+        print 'continue? [y/n] ',
+        ans = raw_input().rstrip()
+        if ans == 'y':
+          continued = True
+          break
+        elif ans == 'n':
+          continued = False
+          break
+      if not continued:
+        # 'n'だったら終了
+        print 'END'
+        exit(0)
 
-    # 入札結果を受信してリストに蓄積
-    result = map((lambda x: x[x.find(':')+1:]), receive().split())
-    prices = result[0:nItems]
-    bids = result[nItems:nItems+nAgents]
-    priceList.append(prices)
-    bidList.append(bids)
+    # サーバに接続
+    clientsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    clientsock.connect((host,port))
 
-    # 入札後の商品の価格を受信してリストを生成 (endを受信した場合はbreak)
-    newPrices = receive()
-    if newPrices.rstrip() == 'end':
-      break
-    else:
-      newPrices = map((lambda x: int(x[x.find(':')+1:])), newPrices.split())
+    # PLEASE INPUT YOUR NAMEを受信
+    receive()
 
-  # 接続を閉じる
-  clientsock.close()
+    # 名前を送信
+    send(myName)
 
-  #####################
-  # 以下で入札履歴を作成
+    # エージェントリストを受信して名前のリストを生成
+    agentNameList = map((lambda x: x[x.find(':')+1:]), receive().split())
 
-  # 全ての商品組のリストを生成
-  itemPowerSet = powersetGenerator(range(nItems))
+    # 自分のIDを受信
+    myID = int(receive()[9:])
 
-  # 商品組毎に入札履歴を作成する
-  for itemSet in itemPowerSet:
-    if itemSet == []:
-      # 全ての商品組について処理を終えたら抜ける
-      break
+    # 商品の数, エージェントの数を受信
+    nItems, nAgents = map(int, receive().split(','))
 
-    # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
-    itemSet.sort()
+    # 商品価格と入札結果を蓄積するリスト
+    priceList = []
+    bidList = []
 
-    # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
-    for agentNumber, agentName in enumerate(agentNameList):
-      if agentNumber == myID-1:
-        # 自分の入札履歴はスキップ
-        continue
-      if agentName not in bidHistory:
-        bidHistory[agentName] = []
-      bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
-      bids = bidHistory[agentName][-1]['bids']
-      for price, bid in zip(priceList, bidList):
-        bidSet = subSequenceWithIndexes(itemSet, bid[agentNumber])
-        if listIsOnes(bidSet):
-          bids.append(price + [1])
-        else:
-          bids.append(price + [-1])
+    #===========================================================================
+    # オークションの実施
+    #===========================================================================
 
-  # この日の入札履歴を表示
-  pprint(bidHistory)
+    while True:
+      # 入札額を決定し送信
+      send(createBids())
 
-  # 1日進める
-  date += 1
+      # 入札結果を受信してリストに蓄積
+      result = map((lambda x: x[x.find(':')+1:]), receive().split())
+      prices = result[0:nItems]
+      bids = result[nItems:nItems+nAgents]
+      priceList.append(prices)
+      bidList.append(bids)
+
+      # 入札後の商品の価格を受信してリストを生成 (endを受信した場合はbreak)
+      newPrices = receive()
+      if newPrices.rstrip() == 'end':
+        break
+      else:
+        newPrices = map((lambda x: int(x[x.find(':')+1:])), newPrices.split())
+
+    # 接続を閉じる
+    clientsock.close()
+
+    #===========================================================================
+    # 入札履歴の作成 
+    #===========================================================================
+
+    # 全ての商品組のリストを生成
+    itemPowerSet = powersetGenerator(range(nItems))
+
+    # 商品組毎に入札履歴を作成する
+    for itemSet in itemPowerSet:
+      if itemSet == []:
+        # 全ての商品組について処理を終えたら抜ける
+        break
+
+      # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
+      itemSet.sort()
+
+      # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
+      for agentNumber, agentName in enumerate(agentNameList):
+        if agentNumber == myID-1:
+          # 自分の入札履歴はスキップ
+          continue
+        if agentName not in bidHistory:
+          bidHistory[agentName] = []
+        bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
+        bids = bidHistory[agentName][-1]['bids']
+        for price, bid in zip(priceList, bidList):
+          bidSet = subSequenceWithIndexes(itemSet, bid[agentNumber])
+          if listIsOnes(bidSet):
+            bids.append(price + [1])
+          else:
+            bids.append(price + [-1])
+
+    # この日の入札履歴を表示
+    pprint(bidHistory)
+
+    # 1日進める
+    date += 1
 
 # priceList と bidList から SVM作成に必要なデータを作る (以下のようなDictionary)
 # {
