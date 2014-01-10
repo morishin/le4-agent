@@ -5,8 +5,11 @@ import numpy as np
 from scipy.linalg import norm
 from random import randint
 from pprint import pprint
+
+# 自作のSVMクラス
 from SVM import SVM
 
+# 受信データ用のバッファイサイズ
 BUF_LEN = 256
 
 #===========================================================================
@@ -27,7 +30,7 @@ def receive():
   print msg.rstrip()
   return msg
 
-# 入札を生成 (現在はランダムで入札するかどうか決定している)
+# 入札を生成 (現在は仮に乱数で入札を決定している)
 def createBids():
   bids = ''
   for i in xrange(0, nItems):
@@ -215,52 +218,3 @@ if __name__ == '__main__':
 
     # 1日進める
     date += 1
-
-# priceList と bidList から SVM作成に必要なデータを作る (以下のようなDictionary)
-# {
-#   'AGENT01': [
-#     {
-#       'itemSet': [0],
-#       'bids': [
-#         [0, 1],
-#         [1, 1],
-#         [2, -1]
-#       ],
-#       'svm': <SVM object>
-#     },
-#     {
-#       'itemSet': [1],
-#       'bids': [
-#         [0, 1],
-#         [1, -1],
-#         [2, -1]
-#       ],
-#       'svm': <SVM object>
-#     },
-#     {
-#       'itemSet': [0, 1],
-#       'bids': [
-#         [0, 0, 1],
-#         [1, 1, -1],
-#         [2, 1, -1]
-#       ],
-#       'svm': <SVM object>
-#     }
-#   ],
-#
-#   'AGENT02': [
-#       .
-#       .
-#       .
-#   ],
-#
-#       .
-#       .
-#       .
-# }
-#
-# 上のデータを用いて、各エージェントに対し、商品毎のSVM あるいは 商品組毎のSVM を作る
-#
-# SVMを作って、そのエージェントが何円まで入札してくるか(=評価値)を推定する
-# -> 自分以外の全てのエージェントの評価値を推定して、自分の評価値との比較で、どの商品組で入札していくかを決める。
-# -> 入札する商品組を決めたら、評価値に達するまで入札し続ける
