@@ -44,12 +44,16 @@ class SVM(object):
     alpha = array(sol['x']).reshape(n)
     self.alpha = alpha
 
-    # サポートベクターのインデックスの配列
+    # サポートベクタのインデックスの配列
     S = []
     for i, a in enumerate(alpha):
       if a > 0.00001:
         S.append(i)
     self.S = S
+
+    # サポートベクタが見つからなかった場合はreturn
+    if len(S) == 0:
+      return
 
     # w: 重みベクタ
     w = np.zeros(d)
@@ -69,6 +73,10 @@ class SVM(object):
 
   # 識別関数
   def discriminate(self, v):
+    # サポートベクタが存在しない時は識別出来ないのでNoneを返す
+    if len(S) == 0:
+      return None
+
     result = 0
     for i in range(len(self.Y)):
       result += self.alpha[i] * self.Y[i] * self.kernel(self.X[i], v)

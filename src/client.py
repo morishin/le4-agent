@@ -86,9 +86,11 @@ if __name__ == '__main__':
   # オークションが何日目か
   date = 0
 
+  # オークションを繰り返すループ
   while True:
-    # オークションを続けるかどうか尋ねる
-    if date != 0:
+    # 2日目以降はオークションを続けるかどうか尋ねる
+    if date > 0:
+      # 'y'か'n'が入力されるまで繰り返し尋ねる
       while True:
         print 'continue? [y/n] ',
         ans = raw_input().rstrip()
@@ -98,9 +100,12 @@ if __name__ == '__main__':
         elif ans == 'n':
           continued = False
           break
+      # 'n'だったら入札履歴をファイルに書き出して終了
       if not continued:
-        # 'n'だったら終了
-        print 'END'
+        fileName = 'bidHistory_'+myName+'.txt'
+        with open(fileName, 'w') as out:
+          print 'history data is saved as \''+fileName+'\''
+          pprint(bidHistory, stream=out)
         exit(0)
 
     # サーバに接続
@@ -141,11 +146,12 @@ if __name__ == '__main__':
       priceList.append(prices)
       bidList.append(bids)
 
-      # 入札後の商品の価格を受信してリストを生成 (endを受信した場合はbreak)
+      # 入札後の商品の価格を受信してリストを生成 (endを受信した場合はbreakしてオークションを終了)
       newPrices = receive()
       if newPrices.rstrip() == 'end':
         break
       else:
+        # この値は後々入札を決定するのに利用する予定
         newPrices = map((lambda x: int(x[x.find(':')+1:])), newPrices.split())
 
     # 接続を閉じる
@@ -155,7 +161,7 @@ if __name__ == '__main__':
     # 入札履歴の作成 
     #===========================================================================
 
-    # 全ての商品組のリストを生成
+    # 全ての商品組のリスト(冪集合)を生成
     itemPowerSet = powersetGenerator(range(nItems))
 
     # 商品組毎に入札履歴を作成する
@@ -168,36 +174,41 @@ if __name__ == '__main__':
       itemSet.sort()
 
       # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
-      for agentNumber, agentName in enumerate(agentNameList):
-        if agentNumber == myID-1:
-          # 自分の入札履歴はスキップ
+      for agentIndex, agentName in enumerate(agentNameList):
+        # 自分の入札履歴はスキップ
+        if agentIndex == myID-1:
           continue
+        # このagentNameに関するデータがbidHistoryに存在しなければ空のリストを生成
         if agentName not in bidHistory:
           bidHistory[agentName] = []
-        for historyForItemSet in bidHistory[agentName]:
-          if historyForItemSet['itemSet'] == itemSet:
+        
+        for historyData in bidHistory[agentName]:
+          # 同じitemSetの履歴が存在すればそこに入札履歴を追加していく
+          if historyData['itemSet'] == itemSet:
             break
         else:
-          bidHistory[agentName].append({'itemSet': itemSet, 'bids': []})
-          historyForItemSet = bidHistory[agentName][-1]
+          # 存在しなければ入札履歴を格納するディクショナリを新しく生成して追加
+          historyData = {'itemSet': itemSet, 'bids': [], 'svm': None}
+          bidHistory[agentName].append(historyData)
+
+        # 商品組の価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
         for price, bid in zip(priceList, bidList):
           price = map(float, price)
           price = subSequenceWithIndexes(itemSet, price)
-          bidSet = subSequenceWithIndexes(itemSet, bid[agentNumber])
+          bidSet = subSequenceWithIndexes(itemSet, bid[agentIndex])
           if listIsOnes(bidSet):
-            historyForItemSet['bids'].append(price + [1.0])
+            historyData['bids'].append(price + [1.0])
           else:
-            historyForItemSet['bids'].append(price + [-1.0])
+            historyData['bids'].append(price + [-1.0])
 
         # SVMを作成
-        if date > 3:
-          D = np.array(historyForItemSet['bids'])
-          n = len(D)        # データ点の個数
-          d = len(D[0])-1   # データ点の次元
-          X = D[:, :d]      # データ点の配列
-          Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
-          svm = SVM(X, Y)
-          historyForItemSet['svm'] = svm
+        D = np.array(historyData['bids'])
+        n = len(D)        # データ点の個数
+        d = len(D[0])-1   # データ点の次元
+        X = D[:, :d]      # データ点の配列
+        Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
+        svm = SVM(X, Y)
+        historyData['svm'] = svm
 
     # この日の入札履歴を表示
     pprint(bidHistory)
