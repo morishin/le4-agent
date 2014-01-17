@@ -176,7 +176,7 @@ if __name__ == '__main__':
       # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
       itemSet.sort()
 
-      # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
+      # itemSetに対する、各エージェントの入札履歴をbidHostoryにappendしていく
       for agentIndex, agentName in enumerate(agentNameList):
         # 自分の入札履歴はスキップ
         if agentIndex == myID-1:
@@ -194,14 +194,16 @@ if __name__ == '__main__':
           historyData = {'itemSet': itemSet, 'bids': [], 'svm': None}
           bidHistory[agentName].append(historyData)
 
-        # 商品組の価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
+        # itemSetの価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
         for price, bid in zip(priceList, bidList):
           price = map(float, price)
           price = subSequenceWithIndexes(itemSet, price)
           bidSet = subSequenceWithIndexes(itemSet, bid[agentIndex])
           if listIsOnes(bidSet):
+            # itemSetの全ての商品に対して入札している場合は1
             historyData['bids'].append(price + [1.0])
           else:
+            # そうでない場合は-1
             historyData['bids'].append(price + [-1.0])
 
         # SVMを作成
@@ -211,6 +213,8 @@ if __name__ == '__main__':
         X = D[:, :d]      # データ点の配列
         Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
         svm = SVM(X, Y)
+        
+        # 入札履歴データに作成したSVMを格納(次回以降の入札戦略に使用予定)
         historyData['svm'] = svm
 
     # この日の入札履歴を表示
