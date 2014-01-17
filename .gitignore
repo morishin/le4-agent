@@ -3,6 +3,7 @@ report/*
 server1.2_2013/*
 *.pyc
 venv/*
+bidHistory_AGENT*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
