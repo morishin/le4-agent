@@ -5,8 +5,11 @@ import numpy as np
 from scipy.linalg import norm
 from random import randint
 from pprint import pprint
+
+# 自作のSVMクラス
 from SVM import SVM
 
+# 受信データ用のバッファイサイズ
 BUF_LEN = 256
 
 #===========================================================================
@@ -27,7 +30,7 @@ def receive():
   print msg.rstrip()
   return msg
 
-# 入札を生成 (現在はランダムで入札するかどうか決定している)
+# 入札を生成 (現在は仮に乱数で入札を決定している)
 def createBids():
   bids = ''
   for i in xrange(0, nItems):
@@ -173,7 +176,7 @@ if __name__ == '__main__':
       # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
       itemSet.sort()
 
-      # ある商品組に対する、各エージェントの入札履歴をbidHostoryにappendしていく
+      # itemSetに対する、各エージェントの入札履歴をbidHostoryにappendしていく
       for agentIndex, agentName in enumerate(agentNameList):
         # 自分の入札履歴はスキップ
         if agentIndex == myID-1:
@@ -191,14 +194,16 @@ if __name__ == '__main__':
           historyData = {'itemSet': itemSet, 'bids': [], 'svm': None}
           bidHistory[agentName].append(historyData)
 
-        # 商品組の価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
+        # itemSetの価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
         for price, bid in zip(priceList, bidList):
           price = map(float, price)
           price = subSequenceWithIndexes(itemSet, price)
           bidSet = subSequenceWithIndexes(itemSet, bid[agentIndex])
           if listIsOnes(bidSet):
+            # itemSetの全ての商品に対して入札している場合は1
             historyData['bids'].append(price + [1.0])
           else:
+            # そうでない場合は-1
             historyData['bids'].append(price + [-1.0])
 
         # SVMを作成
@@ -208,6 +213,8 @@ if __name__ == '__main__':
         X = D[:, :d]      # データ点の配列
         Y = np.reshape(D[:, d:], n) #データ点の属するクラスの配列
         svm = SVM(X, Y)
+        
+        # 入札履歴データに作成したSVMを格納(次回以降の入札戦略に使用予定)
         historyData['svm'] = svm
 
     # この日の入札履歴を表示
@@ -215,52 +222,3 @@ if __name__ == '__main__':
 
     # 1日進める
     date += 1
-
-# priceList と bidList から SVM作成に必要なデータを作る (以下のようなDictionary)
-# {
-#   'AGENT01': [
-#     {
-#       'itemSet': [0],
-#       'bids': [
-#         [0, 1],
-#         [1, 1],
-#         [2, -1]
-#       ],
-#       'svm': <SVM object>
-#     },
-#     {
-#       'itemSet': [1],
-#       'bids': [
-#         [0, 1],
-#         [1, -1],
-#         [2, -1]
-#       ],
-#       'svm': <SVM object>
-#     },
-#     {
-#       'itemSet': [0, 1],
-#       'bids': [
-#         [0, 0, 1],
-#         [1, 1, -1],
-#         [2, 1, -1]
-#       ],
-#       'svm': <SVM object>
-#     }
-#   ],
-#
-#   'AGENT02': [
-#       .
-#       .
-#       .
-#   ],
-#
-#       .
-#       .
-#       .
-# }
-#
-# 上のデータを用いて、各エージェントに対し、商品毎のSVM あるいは 商品組毎のSVM を作る
-#
-# SVMを作って、そのエージェントが何円まで入札してくるか(=評価値)を推定する
-# -> 自分以外の全てのエージェントの評価値を推定して、自分の評価値との比較で、どの商品組で入札していくかを決める。
-# -> 入札する商品組を決めたら、評価値に達するまで入札し続ける
