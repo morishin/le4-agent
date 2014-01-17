@@ -1,0 +1,12 @@
+[{
+  "itemSet": [0],
+  "value": 3
+},
+{
+  "itemSet": [1],
+  "value": 6
+},
+{
+  "itemSet": [0, 1],
+  "value": 15
+}]

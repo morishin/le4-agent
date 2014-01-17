@@ -5,6 +5,7 @@ import numpy as np
 from scipy.linalg import norm
 from random import randint
 from pprint import pprint
+import json
 
 # 自作のSVMクラス
 from SVM import SVM
@@ -34,7 +35,14 @@ def receive():
 def createBids():
   bids = ''
   for i in xrange(0, nItems):
-    bids += str(randint(0, 1))
+    for d in evalData:
+      if d['itemSet'] == [i]:
+        price = currentPrice[i]
+        if price < d['value']:
+          bids += '1'
+        else:
+          bids += '0'
+        break
   return bids
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
@@ -84,6 +92,10 @@ if __name__ == '__main__':
 
   # 自分の名前を設定
   myName = 'AGENT%02d' % randint(0, 99)
+  # 商品組毎の評価値データを読み込む
+  f = open('eval.txt')
+  evalData = json.load(f)
+  f.close()
   # 入札履歴のデータを蓄積するディクショナリ
   bidHistory = {}
   # オークションが何日目か
@@ -134,13 +146,17 @@ if __name__ == '__main__':
     priceList = []
     bidList = []
 
+    # 現在の商品価格(全て0で初期化)
+    currentPrice = [0] * nItems
+
     #===========================================================================
     # オークションの実施
     #===========================================================================
 
     while True:
       # 入札額を決定し送信
-      send(createBids())
+      bid = createBids()
+      send(bid)
 
       # 入札結果を受信してリストに蓄積
       result = map((lambda x: x[x.find(':')+1:]), receive().split())
@@ -150,13 +166,23 @@ if __name__ == '__main__':
       bidList.append(bids)
 
       # 入札後の商品の価格を受信してリストを生成 (endを受信した場合はbreakしてオークションを終了)
-      newPrices = receive()
-      if newPrices.rstrip() == 'end':
+      currentPrice = receive()
+      if currentPrice.rstrip() == 'end':
         break
       else:
         # この値は後々入札を決定するのに利用する予定
-        newPrices = map((lambda x: int(x[x.find(':')+1:])), newPrices.split())
+        currentPrice = map((lambda x: int(x[x.find(':')+1:])), currentPrice.split())
 
+    winners = map((lambda x: int(x[x.find(':')+1:])), receive().split()[1:])
+    prices = map((lambda x: int(x[x.find(':')+1:])), receive().split()[1:])
+    benefit = 0
+    for itemNumber, winnerID in enumerate(winners):
+      if winnerID == myID:
+        for d in evalData:
+          if d['itemSet'] == [itemNumber]:
+            benefit += d['value'] - prices[itemNumber]
+            break
+    print 'benefit: %d' % benefit
     # 接続を閉じる
     clientsock.close()
 
