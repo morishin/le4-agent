@@ -74,7 +74,7 @@ class SVM(object):
   # 識別関数
   def discriminate(self, v):
     # サポートベクタが存在しない時は識別出来ないのでNoneを返す
-    if len(S) == 0:
+    if len(self.S) == 0:
       return None
 
     result = 0

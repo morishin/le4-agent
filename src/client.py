@@ -31,8 +31,31 @@ def receive():
   print msg.rstrip()
   return msg
 
-# 入札を生成 (現在は仮に乱数で入札を決定している)
-def createBids():
+# 商品の落札価格を推定
+def estimatePrice(itemNumber):
+  maxPrice = 0
+  for agentName in bidHistory:
+    historyData = bidHistory[agentName]
+    for h in historyData:
+      if h['itemSet'] == [itemNumber]:
+        # エージェントagentNameの商品itemNumberへの入札に対するSVM
+        svm = h['svm']
+        break
+
+    price = 0
+    d = svm.discriminate([price])
+    if d == None:
+      # SVMが正常に作成出来ていなければNoneを返す
+      return None
+    else:
+      while d==1.0:
+        price += 1
+        d = svm.discriminate([price])
+    maxPrice = max(maxPrice, price)
+  return maxPrice
+
+# 自己の評価値のみで決定した入札
+def bidByMyself():
   bids = ''
   for i in xrange(0, nItems):
     for d in evalData:
@@ -43,6 +66,62 @@ def createBids():
         else:
           bids += '0'
         break
+  return bids
+
+# 入札を生成
+def createBids():
+  if date==0:
+    return bidByMyself()
+
+  if targetData['itemSet']==None:
+    targetData['benefit'] = -sys.maxint
+    # 全ての商品組の中で最も効用が高くなる商品組を推定しtargetDataに代入
+    for itemSet in itemPowerSet:
+      if itemSet == []:
+        # 全ての商品組について処理を終えたら抜ける
+        break
+      # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
+      itemSet.sort()
+
+      for d in evalData:
+        if itemSet == d['itemSet']:
+          setPrice = 0
+          for itemNumber in itemSet:
+            est = estimatePrice(itemNumber)
+            if est == None:
+              return bidByMyself()
+            setPrice += est
+            
+          benefit = d['value'] - setPrice
+          print 'bene: %f' % benefit
+          if benefit > targetData['benefit']:
+            targetData['benefit'] = benefit
+            targetData['itemSet'] = itemSet
+          break
+    print 'target:'
+    print targetData
+
+  shouldQuit = False
+  print 'evalData',
+  print evalData
+  for d in evalData:
+    if d['itemSet'] == targetData['itemSet']:
+      setPrice = 0
+      for itemNumber in targetData['itemSet']:
+        setPrice += currentPrice[itemNumber]
+      print 'hey'
+      print setPrice
+      print d['value']
+      if setPrice >= d['value']:
+        shouldQuit = True
+      break
+
+  bids = ''
+  for itemNumber in xrange(0, nItems):
+    if (not shouldQuit) and (itemNumber in targetData['itemSet']):
+      bids += '1'
+    else:
+      bids += '0'
   return bids
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
@@ -83,18 +162,20 @@ def polynomialKernel(x, y, d=2):
 
 if __name__ == '__main__':
   # コマンドライン引数からhostとportを取得
-  if len(sys.argv) < 3:
-    print 'usage: python client.py [hostname] [port]'
+  if len(sys.argv) < 4:
+    print 'usage: python client.py [hostname] [port] [eval_file]'
     exit(1)
 
   host = sys.argv[1]
   port = int(sys.argv[2])
+  eval_file = sys.argv[3]
 
   # 自分の名前を設定
   myName = 'AGENT%02d' % randint(0, 99)
   # 商品組毎の評価値データを読み込む
-  f = open('eval.txt')
+  f = open(eval_file)
   evalData = json.load(f)
+  evalData = sorted(evalData, key=lambda x: x['value'])
   f.close()
   # 入札履歴のデータを蓄積するディクショナリ
   bidHistory = {}
@@ -141,6 +222,12 @@ if __name__ == '__main__':
 
     # 商品の数, エージェントの数を受信
     nItems, nAgents = map(int, receive().split(','))
+
+    # 全ての商品組のリスト(冪集合)を生成
+    itemPowerSet = powersetGenerator(range(nItems))
+
+    # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
+    targetData = {'itemSet': None, 'benefit': None}
 
     # 商品価格と入札結果を蓄積するリスト
     priceList = []
@@ -189,9 +276,6 @@ if __name__ == '__main__':
     #===========================================================================
     # 入札履歴の作成 
     #===========================================================================
-
-    # 全ての商品組のリスト(冪集合)を生成
-    itemPowerSet = powersetGenerator(range(nItems))
 
     # 商品組毎に入札履歴を作成する
     for itemSet in itemPowerSet:
