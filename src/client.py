@@ -75,6 +75,9 @@ def createBids():
 
   if targetData['itemSet']==None:
     targetData['benefit'] = -sys.maxint
+
+     # 全ての商品組のリスト(冪集合)を生成
+    itemPowerSet = powersetGenerator(range(nItems))
     # 全ての商品組の中で最も効用が高くなる商品組を推定しtargetDataに代入
     for itemSet in itemPowerSet:
       if itemSet == []:
@@ -223,9 +226,6 @@ if __name__ == '__main__':
     # 商品の数, エージェントの数を受信
     nItems, nAgents = map(int, receive().split(','))
 
-    # 全ての商品組のリスト(冪集合)を生成
-    itemPowerSet = powersetGenerator(range(nItems))
-
     # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
     targetData = {'itemSet': None, 'benefit': None}
 
@@ -277,6 +277,9 @@ if __name__ == '__main__':
     # 入札履歴の作成 
     #===========================================================================
 
+    # 全ての商品組のリスト(冪集合)を生成
+    itemPowerSet = powersetGenerator(range(nItems))
+
     # 商品組毎に入札履歴を作成する
     for itemSet in itemPowerSet:
       if itemSet == []:
@@ -315,7 +318,6 @@ if __name__ == '__main__':
           else:
             # そうでない場合は-1
             historyData['bids'].append(price + [-1.0])
-
         # SVMを作成
         D = np.array(historyData['bids'])
         n = len(D)        # データ点の個数
