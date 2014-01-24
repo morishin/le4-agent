@@ -8,5 +8,5 @@
 },
 {
   "itemSet": [0, 1],
-  "value": 5
+  "value": 16
 }]

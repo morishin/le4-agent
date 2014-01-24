@@ -63,7 +63,7 @@ def estimatePrice(itemNumber):
       # 履歴中の最高落札価格+1を推定落札価格とする
       for h in historyData:
         if h['itemSet'] == [itemNumber]:
-          d = h['bids'][-1][0] + 1
+          price = h['bids'][-1][0] + 1
           break
 
     # 最高額を更新
@@ -139,7 +139,7 @@ def createBids():
         shouldQuit = True
       break
 
-  # サーバへ送信する入札文字列を生成
+  # 狙う商品組にのみ入札する文字列を生成
   bids = ''
   for itemNumber in xrange(0, nItems):
     # 勝負を降りていない場合、ターゲットに決めた商品組に入札する
@@ -147,6 +147,13 @@ def createBids():
       bids += '1'
     else:
       bids += '0'
+
+  # 評価値の範囲内であれば、狙う商品組以外の商品に入札しても損にならないので、
+  # 自己の評価値のみを用いた(bnefeitが負にならない安全な)入札文字列との
+  # OR(ビット演算)をとることで、損せず出来るだけ多く入札するようにした
+  safeBids = bidsDependOnMyEval()
+  bids = format((int(bids, 2) | int(safeBids, 2)), 'b')
+
   return bids
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
