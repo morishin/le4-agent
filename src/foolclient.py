@@ -55,7 +55,7 @@ def estimatePrice(itemNumber):
   return maxPrice
 
 # 自己の評価値のみで決定した入札
-def bidDependsOnMyEval():
+def bidByMyself():
   bids = ''
   for i in xrange(0, nItems):
     for d in evalData:
@@ -70,67 +70,7 @@ def bidDependsOnMyEval():
 
 # 入札を生成
 def createBids():
-  # 初日は学習データが無いため、自己の評価値のみで入札を決定
-  if date==0:
-    return bidDependsOnMyEval()
-
-  # 1日の始めに狙う商品組targetDataを決定する
-  ## 全ての商品の落札価格を過去のデータから推定(SVMを使用)
-  ## 落札価格の推定値と自己の評価値の比較より、最も効用の高くなる商品組を決定
-  if targetData['itemSet']==None:
-    targetData['benefit'] = -sys.maxint
-
-     # 全ての商品組のリスト(冪集合)を生成
-    itemPowerSet = powersetGenerator(range(nItems))
-
-    # 全ての商品組の中で最も効用が高くなる商品組を推定しtargetDataに代入
-    for itemSet in itemPowerSet:
-      if itemSet == []:
-        # 全ての商品組について処理を終えたら抜ける
-        break
-
-      # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
-      ## ex. [1,2,0] -> [0,1,2]
-      itemSet.sort()
-
-      # ファイルから読み込んだ評価値データの中からitemSetに対応するものを取得
-      for d in evalData:
-        if itemSet == d['itemSet']:
-          setPrice = 0
-          for itemNumber in itemSet:
-            # 商品の落札価格の推定値を計算
-            est = estimatePrice(itemNumber)
-            if est == None:
-              return bidByMyself()
-            setPrice += est
-          
-          # 推定した商品組の落札価格を用いて、それを落札した時の効用を計算
-          benefit = d['value'] - setPrice
-          # 最大値を更新
-          if benefit > targetData['benefit']:
-            targetData['benefit'] = benefit
-            targetData['itemSet'] = itemSet
-          break
-
-  # 狙う商品組の価格が評価値を越えた場合は勝負を降りる
-  shouldQuit = False
-  for d in evalData:
-    if d['itemSet'] == targetData['itemSet']:
-      setPrice = 0
-      for itemNumber in targetData['itemSet']:
-        setPrice += currentPrice[itemNumber]
-      if setPrice >= d['value']:
-        shouldQuit = True
-      break
-
-  # サーバへ送信する入札文字列を生成
-  bids = ''
-  for itemNumber in xrange(0, nItems):
-    if (not shouldQuit) and (itemNumber in targetData['itemSet']):
-      bids += '1'
-    else:
-      bids += '0'
-  return bids
+  return bidByMyself()
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
 def subSequenceWithIndexes(indexes, sequence):
@@ -295,7 +235,6 @@ if __name__ == '__main__':
         break
 
       # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
-      ## ex. [1,2,0] -> [0,1,2]
       itemSet.sort()
 
       # itemSetに対する、各エージェントの入札履歴をbidHostoryにappendしていく
@@ -327,7 +266,6 @@ if __name__ == '__main__':
           else:
             # そうでない場合は-1
             historyData['bids'].append(price + [-1.0])
-
         # SVMを作成
         D = np.array(historyData['bids'])
         n = len(D)        # データ点の個数
