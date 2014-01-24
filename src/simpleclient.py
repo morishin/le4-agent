@@ -32,8 +32,14 @@ def receive():
   return msg
 
 # 商品の落札価格を推定
+# itemNumber: 価格を推定する商品のインデックス
+## その商品に対して入札される最高額をSVMにより推定する
 def estimatePrice(itemNumber):
+  # 最高額を初期化
   maxPrice = 0
+
+  # 全エージェントに対して、その商品への最高入札額を推定し、
+  # その中で最も高い額を推定落札価格として返す
   for agentName in bidHistory:
     historyData = bidHistory[agentName]
     for h in historyData:
@@ -43,29 +49,35 @@ def estimatePrice(itemNumber):
         break
 
     price = 0
-    # エージェントagentNameが商品itemNumberの価格がpriceの時に入札するかどうかをSVMにより推定
+    # エージェントagentNameが商品itemNumberの価格がpriceの時に
+    # 入札するかどうかをSVMにより推定
     d = svm.discriminate([price])
-    if d == None:
-      # SVMが正常に作成できていない場合は、履歴中の最高落札価格を用いる
-      for h in historyData:
-        if h['itemSet'] == [itemNumber]:
-          d = h['bids'][-1][0] + 1
-          break
-    else:
-      # SVMが作成出来ている場合は、SVMによる落札価格の推定を行う
+    if d != None:
+      # SVMが正常に作成出来ている場合は、SVMによる落札価格の推定を行う
+      ## 識別関数の戻り値が-1、つまり入札を止める時点の価格を求める
       while d==1.0:
         price += 1
         d = svm.discriminate([price])
+    else:
+      # SVMが正常に作成できていない場合(データ点のクラスが1クラスしか無い時等)は、
+      # 履歴中の最高落札価格+1を推定落札価格とする
+      for h in historyData:
+        if h['itemSet'] == [itemNumber]:
+          price = h['bids'][-1][0] + 1
+          break
+
+    # 最高額を更新
     maxPrice = max(maxPrice, price)
   return maxPrice
 
-# 自己の評価値のみで決定した入札
-def bidDependsOnMyEval():
+# 自己の評価値のみで決定した入札を返す
+def bidsDependOnMyEval():
   bids = ''
   for i in xrange(0, nItems):
     for d in evalData:
       if d['itemSet'] == [i]:
         price = currentPrice[i]
+        # 現在価格が自己の評価値以下の場合は入札する
         if price < d['value']:
           bids += '1'
         else:
@@ -76,7 +88,7 @@ def bidDependsOnMyEval():
 # 入札を生成
 def createBids():
   # 自己の評価値のみで入札を決定
-  return bidDependsOnMyEval()
+  return bidsDependOnMyEval()
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
 def subSequenceWithIndexes(sequence, indexes):
@@ -179,9 +191,6 @@ if __name__ == '__main__':
     # 商品の数, エージェントの数を受信
     nItems, nAgents = map(int, receive().split(','))
 
-    # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
-    targetData = {'itemSet': None, 'benefit': None}
-
     # 商品価格と入札結果を蓄積するリスト
     priceList = []
     bidList = []
@@ -191,6 +200,9 @@ if __name__ == '__main__':
 
     # 現在の商品価格(全て0で初期化)
     currentPrice = [0] * nItems
+
+    # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
+    targetData = {'itemSet': None, 'benefit': -sys.maxint}
 
     #===========================================================================
     # オークションの実施
@@ -294,7 +306,7 @@ if __name__ == '__main__':
 
     # 日付表示
     print 'date: %d' % date
-    
+
     # 落札した商品のリスト
     print 'get:',
     print itemsWin

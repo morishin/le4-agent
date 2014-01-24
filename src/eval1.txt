@@ -1,12 +1,12 @@
 [{
   "itemSet": [0],
-  "value": 5
+  "value": 3
 },
 {
   "itemSet": [1],
-  "value": 4
+  "value": 8
 },
 {
   "itemSet": [0, 1],
-  "value": 16
+  "value": 12
 }]
