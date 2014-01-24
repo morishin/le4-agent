@@ -43,11 +43,16 @@ def estimatePrice(itemNumber):
         break
 
     price = 0
+    # エージェントagentNameが商品itemNumberの価格がpriceの時に入札するかどうかをSVMにより推定
     d = svm.discriminate([price])
     if d == None:
-      # SVMが正常に作成出来ていなければNoneを返す
-      return None
+      # SVMが正常に作成できていない場合は、履歴中の最高落札価格を用いる
+      for h in historyData:
+        if h['itemSet'] == [itemNumber]:
+          d = h['bids'][-1][0] + 1
+          break
     else:
+      # SVMが作成出来ている場合は、SVMによる落札価格の推定を行う
       while d==1.0:
         price += 1
         d = svm.discriminate([price])
@@ -100,8 +105,6 @@ def createBids():
           for itemNumber in itemSet:
             # 商品の落札価格の推定値を計算
             est = estimatePrice(itemNumber)
-            if est == None:
-              return bidByMyself()
             setPrice += est
           
           # 推定した商品組の落札価格を用いて、それを落札した時の効用を計算
