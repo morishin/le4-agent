@@ -43,11 +43,16 @@ def estimatePrice(itemNumber):
         break
 
     price = 0
+    # エージェントagentNameが商品itemNumberの価格がpriceの時に入札するかどうかをSVMにより推定
     d = svm.discriminate([price])
     if d == None:
-      # SVMが正常に作成出来ていなければNoneを返す
-      return None
+      # SVMが正常に作成できていない場合は、履歴中の最高落札価格を用いる
+      for h in historyData:
+        if h['itemSet'] == [itemNumber]:
+          d = h['bids'][-1][0] + 1
+          break
     else:
+      # SVMが作成出来ている場合は、SVMによる落札価格の推定を行う
       while d==1.0:
         price += 1
         d = svm.discriminate([price])
@@ -55,7 +60,7 @@ def estimatePrice(itemNumber):
   return maxPrice
 
 # 自己の評価値のみで決定した入札
-def bidByMyself():
+def bidDependsOnMyEval():
   bids = ''
   for i in xrange(0, nItems):
     for d in evalData:
@@ -70,10 +75,11 @@ def bidByMyself():
 
 # 入札を生成
 def createBids():
-  return bidByMyself()
+  # 自己の評価値のみで入札を決定
+  return bidDependsOnMyEval()
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
-def subSequenceWithIndexes(indexes, sequence):
+def subSequenceWithIndexes(sequence, indexes):
   sub = []
   for i in indexes:
     sub.append(sequence[i])
@@ -129,6 +135,8 @@ if __name__ == '__main__':
   bidHistory = {}
   # オークションが何日目か
   date = 0
+  # 効用の合計
+  totalBenefit = 0
 
   # オークションを繰り返すループ
   while True:
@@ -214,10 +222,12 @@ if __name__ == '__main__':
     for itemNumber, winnerID in enumerate(winners):
       if winnerID == myID:
         itemsWin.append(itemNumber)
-        for d in evalData:
-          if d['itemSet'] == [itemNumber]:
-            benefit += d['value'] - prices[itemNumber]
-            break
+    for d in evalData:
+      if d['itemSet'] == itemsWin:
+        print prices
+        print itemsWin
+        benefit = d['value'] - sum(subSequenceWithIndexes(prices, itemsWin))
+        break
     # 接続を閉じる
     clientsock.close()
 
@@ -235,6 +245,7 @@ if __name__ == '__main__':
         break
 
       # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
+      ## ex. [1,2,0] -> [0,1,2]
       itemSet.sort()
 
       # itemSetに対する、各エージェントの入札履歴をbidHostoryにappendしていく
@@ -258,14 +269,15 @@ if __name__ == '__main__':
         # itemSetの価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
         for price, bid in zip(priceList, bidList):
           price = map(float, price)
-          price = subSequenceWithIndexes(itemSet, price)
-          bidSet = subSequenceWithIndexes(itemSet, bid[agentIndex])
+          price = subSequenceWithIndexes(price, itemSet)
+          bidSet = subSequenceWithIndexes(bid[agentIndex], itemSet)
           if listIsOnes(bidSet):
             # itemSetの全ての商品に対して入札している場合は1
             historyData['bids'].append(price + [1.0])
           else:
             # そうでない場合は-1
             historyData['bids'].append(price + [-1.0])
+
         # SVMを作成
         D = np.array(historyData['bids'])
         n = len(D)        # データ点の個数
@@ -280,12 +292,20 @@ if __name__ == '__main__':
     # この日の入札履歴を表示
     pprint(bidHistory)
 
+    # 日付表示
+    print 'date: %d' % date
+    
     # 落札した商品のリスト
     print 'get:',
     print itemsWin
 
     # この日の効用を出力
     print 'benefit: %d' % benefit
+
+    # これまでの効用
+    totalBenefit += benefit
+    print 'benefit total: %d' % totalBenefit
+    print 'benefit average: %f' % (totalBenefit/(date+1.0))
 
     # 1日進める
     date += 1

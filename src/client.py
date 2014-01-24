@@ -32,8 +32,14 @@ def receive():
   return msg
 
 # 商品の落札価格を推定
+# itemNumber: 価格を推定する商品のインデックス
+## その商品に対して入札される最高額をSVMにより推定する
 def estimatePrice(itemNumber):
+  # 最高額を初期化
   maxPrice = 0
+
+  # 全エージェントに対して、その商品への最高入札額を推定し、
+  # その中で最も高い額を推定落札価格として返す
   for agentName in bidHistory:
     historyData = bidHistory[agentName]
     for h in historyData:
@@ -43,29 +49,35 @@ def estimatePrice(itemNumber):
         break
 
     price = 0
-    # エージェントagentNameが商品itemNumberの価格がpriceの時に入札するかどうかをSVMにより推定
+    # エージェントagentNameが商品itemNumberの価格がpriceの時に
+    # 入札するかどうかをSVMにより推定
     d = svm.discriminate([price])
-    if d == None:
-      # SVMが正常に作成できていない場合は、履歴中の最高落札価格を用いる
+    if d != None:
+      # SVMが正常に作成出来ている場合は、SVMによる落札価格の推定を行う
+      ## 識別関数の戻り値が-1、つまり入札を止める時点の価格を求める
+      while d==1.0:
+        price += 1
+        d = svm.discriminate([price])
+    else:
+      # SVMが正常に作成できていない場合(データ点のクラスが1クラスしか無い時等)は、
+      # 履歴中の最高落札価格+1を推定落札価格とする
       for h in historyData:
         if h['itemSet'] == [itemNumber]:
           d = h['bids'][-1][0] + 1
           break
-    else:
-      # SVMが作成出来ている場合は、SVMによる落札価格の推定を行う
-      while d==1.0:
-        price += 1
-        d = svm.discriminate([price])
+
+    # 最高額を更新
     maxPrice = max(maxPrice, price)
   return maxPrice
 
-# 自己の評価値のみで決定した入札
-def bidDependsOnMyEval():
+# 自己の評価値のみで決定した入札を返す
+def bidsDependOnMyEval():
   bids = ''
   for i in xrange(0, nItems):
     for d in evalData:
       if d['itemSet'] == [i]:
         price = currentPrice[i]
+        # 現在価格が自己の評価値以下の場合は入札する
         if price < d['value']:
           bids += '1'
         else:
@@ -77,38 +89,39 @@ def bidDependsOnMyEval():
 def createBids():
   # 初日は学習データが無いため、自己の評価値のみで入札を決定
   if date==0:
-    return bidDependsOnMyEval()
+    return bidsDependOnMyEval()
 
   # 1日の始めに狙う商品組targetDataを決定する
   ## 全ての商品の落札価格を過去のデータから推定(SVMを使用)
   ## 落札価格の推定値と自己の評価値の比較より、最も効用の高くなる商品組を決定
-  if targetData['itemSet']==None:
-    targetData['benefit'] = -sys.maxint
-
+  if targetData['itemSet'] == None:
      # 全ての商品組のリスト(冪集合)を生成
     itemPowerSet = powersetGenerator(range(nItems))
 
     # 全ての商品組の中で最も効用が高くなる商品組を推定しtargetDataに代入
     for itemSet in itemPowerSet:
+      # 全ての商品組について処理を終えたら抜ける
       if itemSet == []:
-        # 全ての商品組について処理を終えたら抜ける
         break
 
       # powersetGeneratorで取り出した商品組が昇順になっていないのでソート
       ## ex. [1,2,0] -> [0,1,2]
       itemSet.sort()
 
-      # ファイルから読み込んだ評価値データの中からitemSetに対応するものを取得
+      # ファイルから読み込んだ評価値データevalDataの中からitemSetに対応するものを取得し、
+      # それを落札したときの効用をSVMにより推定する
       for d in evalData:
         if itemSet == d['itemSet']:
-          setPrice = 0
+          totalPrice = 0
           for itemNumber in itemSet:
-            # 商品の落札価格の推定値を計算
+            # 各商品の落札価格の推定値を計算
             est = estimatePrice(itemNumber)
-            setPrice += est
+            # 商品組の合計落札価格を計算
+            totalPrice += est
           
           # 推定した商品組の落札価格を用いて、それを落札した時の効用を計算
-          benefit = d['value'] - setPrice
+          benefit = d['value'] - totalPrice
+
           # 最大値を更新
           if benefit > targetData['benefit']:
             targetData['benefit'] = benefit
@@ -119,16 +132,17 @@ def createBids():
   shouldQuit = False
   for d in evalData:
     if d['itemSet'] == targetData['itemSet']:
-      setPrice = 0
+      totalPrice = 0
       for itemNumber in targetData['itemSet']:
-        setPrice += currentPrice[itemNumber]
-      if setPrice >= d['value']:
+        totalPrice += currentPrice[itemNumber]
+      if totalPrice >= d['value']:
         shouldQuit = True
       break
 
   # サーバへ送信する入札文字列を生成
   bids = ''
   for itemNumber in xrange(0, nItems):
+    # 勝負を降りていない場合、ターゲットに決めた商品組に入札する
     if (not shouldQuit) and (itemNumber in targetData['itemSet']):
       bids += '1'
     else:
@@ -192,6 +206,8 @@ if __name__ == '__main__':
   bidHistory = {}
   # オークションが何日目か
   date = 0
+  # 効用の合計
+  totalBenefit = 0
 
   # オークションを繰り返すループ
   while True:
@@ -234,9 +250,6 @@ if __name__ == '__main__':
     # 商品の数, エージェントの数を受信
     nItems, nAgents = map(int, receive().split(','))
 
-    # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
-    targetData = {'itemSet': None, 'benefit': None}
-
     # 商品価格と入札結果を蓄積するリスト
     priceList = []
     bidList = []
@@ -246,6 +259,9 @@ if __name__ == '__main__':
 
     # 現在の商品価格(全て0で初期化)
     currentPrice = [0] * nItems
+
+    # 最も効用の高いと推定した商品組のデータを格納するディクショナリ
+    targetData = {'itemSet': None, 'benefit': -sys.maxint}
 
     #===========================================================================
     # オークションの実施
@@ -347,12 +363,20 @@ if __name__ == '__main__':
     # この日の入札履歴を表示
     pprint(bidHistory)
 
+    # 日付表示
+    print 'date: %d' % date
+
     # 落札した商品のリスト
     print 'get:',
     print itemsWin
 
     # この日の効用を出力
     print 'benefit: %d' % benefit
+
+    # これまでの効用
+    totalBenefit += benefit
+    print 'benefit total: %d' % totalBenefit
+    print 'benefit average: %f' % (totalBenefit/(date+1.0))
 
     # 1日進める
     date += 1
