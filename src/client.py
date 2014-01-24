@@ -136,7 +136,7 @@ def createBids():
   return bids
 
 # リストから指定のインデックス(複数)の要素を取り出し、それらのリストを返す
-def subSequenceWithIndexes(indexes, sequence):
+def subSequenceWithIndexes(sequence, indexes):
   sub = []
   for i in indexes:
     sub.append(sequence[i])
@@ -277,10 +277,12 @@ if __name__ == '__main__':
     for itemNumber, winnerID in enumerate(winners):
       if winnerID == myID:
         itemsWin.append(itemNumber)
-        for d in evalData:
-          if d['itemSet'] == [itemNumber]:
-            benefit += d['value'] - prices[itemNumber]
-            break
+    for d in evalData:
+      if d['itemSet'] == itemsWin:
+        print prices
+        print itemsWin
+        benefit = d['value'] - sum(subSequenceWithIndexes(prices, itemsWin))
+        break
     # 接続を閉じる
     clientsock.close()
 
@@ -322,8 +324,8 @@ if __name__ == '__main__':
         # itemSetの価格とそれに対する入札結果のリストから、入札履歴を表すリストを生成し、bidHistoryに追加していく
         for price, bid in zip(priceList, bidList):
           price = map(float, price)
-          price = subSequenceWithIndexes(itemSet, price)
-          bidSet = subSequenceWithIndexes(itemSet, bid[agentIndex])
+          price = subSequenceWithIndexes(price, itemSet)
+          bidSet = subSequenceWithIndexes(bid[agentIndex], itemSet)
           if listIsOnes(bidSet):
             # itemSetの全ての商品に対して入札している場合は1
             historyData['bids'].append(price + [1.0])
